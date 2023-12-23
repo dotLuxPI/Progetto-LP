@@ -54,3 +54,38 @@ method(MethodName, Args, Form) :-
 
 is_method(Method) :-
     Method = method(_, _, _).
+
+make(InstanceName,ClassName) :-
+    make(InstanceName,ClassName,[]).
+
+make(InstanceName,ClassName,ParameterList) :-
+    catch(is_valid_instancename(InstanceName),instance_found,fail),
+    clause(class(ClassName,_,_),_),
+    is_list(ParameterList),
+    is_parameter(ParameterList),
+    assertz(instanceof(InstanceName,ClassName,ParameterList)).
+
+make(InstanceName,ClassName,ParameterList) :-
+    clause(class(ClassName,_,_),_),
+    is_list(ParameterList),
+    is_parameter(ParameterList),
+    (var(InstanceName), InstanceName = instanceof(_,_,_)).
+
+is_valid_instancename(InstanceName) :-
+    atom(InstanceName),
+    clause(instanceof(InstanceName,_,_),_),
+    write('the instance already exists!'),
+    throw('instance_found').
+is_valid_instancename(InstanceName) :-
+    atom(InstanceName).
+
+
+is_parameter([]) :- !.
+is_parameter([H | T]) :-
+    is_parameter_check(H),
+    is_parameter(T).
+
+is_parameter_check(Field = Value) :-
+    atom(Field),
+    atomic(Value).
+
