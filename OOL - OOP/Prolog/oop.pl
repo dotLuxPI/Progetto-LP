@@ -1,14 +1,16 @@
 %%%% Magliani Andrea 894395
-%%%% Nicolas Picco 894588
-%%%% Luca Perego 894448
+%%%% Picco Nicolas 894588
+%%%% Perego Luca 894448
 
 def_class(Classname, Parents) :-
     def_class(Classname, Parents, []).
 
 def_class(Classname, Parents, Parts) :-
-    catch(classname_check(Classname), class_already_defined, fail),
+    catch(classname_check(Classname),
+          class_already_defined, fail),
     parents_check(Parents),
     parts_check(Parts),
+    %concat_parts(Parts, Parents, NewParts),
     assertz(class(Classname, Parents, Parts)).
 
 classname_check(Classname) :-
@@ -28,7 +30,7 @@ parents_check([H | T]) :-
 
 parts_check([]) :- !.
 parts_check([H | T]) :-
-    is_field(H),
+    is_field_param(H),
     !,
     parts_check(T).
 parts_check([H | T]) :-
@@ -36,15 +38,15 @@ parts_check([H | T]) :-
     !,
     parts_check(T).
 
-field(FieldName, Value) :-
-    field(FieldName, Value, '').
-field(FieldName, _, Type) :-
+field_param(FieldName, Value) :-
+    field_param(FieldName, Value, '').
+field_param(FieldName, _, Type) :-
     atom(FieldName),
     atom(Type).
 
-is_field(Field) :-
+is_field_param(Field) :-
     Field = field(_, _, _).
-is_field(Field) :-
+is_field_param(Field) :-
     Field = field(_, _).
 
 method(MethodName, Args, Form) :-
@@ -55,30 +57,34 @@ method(MethodName, Args, Form) :-
 is_method(Method) :-
     Method = method(_, _, _).
 
-make(InstanceName,ClassName) :-
-    make(InstanceName,ClassName,[]).
+concat_parts(Parts, Parents, NewParts) :-
+    append(NewParts, Parts, NewParts),
+    check_parents_parts(Parents, NewParts).
 
-make(InstanceName,ClassName,ParameterList) :-
-    catch(is_valid_instancename(InstanceName),instance_found,fail),
-    clause(class(ClassName,_,_),_),
+check_parents_parts([], _NewParts) :-
+    !.
+check_parents_parts([H | T], NewParts) :-
+    findall(Parts, class(H, _, Parts), Parts),
+    check_parents_parts(T, NewParts).
+
+
+make(InstanceName, ClassName) :-
+    make(InstanceName, ClassName, []).
+make(InstanceName, ClassName, ParameterList) :-
+    catch(is_valid_instancename(InstanceName),
+          instance_found, fail),
+    clause(class(ClassName, _, _), _),
     is_list(ParameterList),
     is_parameter(ParameterList),
-    assertz(instanceof(InstanceName,ClassName,ParameterList)).
-
-make(InstanceName,ClassName,ParameterList) :-
-    clause(class(ClassName,_,_),_),
-    is_list(ParameterList),
-    is_parameter(ParameterList),
-    (var(InstanceName), InstanceName = instanceof(_,_,_)).
+    assertz(instanceof(InstanceName, ClassName, ParameterList)).
 
 is_valid_instancename(InstanceName) :-
     atom(InstanceName),
-    clause(instanceof(InstanceName,_,_),_),
-    write('the instance already exists!'),
-    throw('instance_found').
+    clause(instanceof(InstanceName, _, _), _),
+    write('The instance already exists!'),
+    throw(instance_found).
 is_valid_instancename(InstanceName) :-
     atom(InstanceName).
-
 
 is_parameter([]) :- !.
 is_parameter([H | T]) :-
@@ -88,4 +94,35 @@ is_parameter([H | T]) :-
 is_parameter_check(Field = Value) :-
     atom(Field),
     atomic(Value).
+
+
+is_class(Classname) :-
+    atom(Classname),
+    clause(class(Classname, _, _), _).
+
+
+is_instance(Value) :-
+    is_instance(Value, _).
+is_instance(Value) :-
+    clause(Value, _).
+is_instance(Value, Classname) :-
+    clause(instanceof(Value, Classname, _), _).
+
+
+inst(InstanceName, Instance) :-
+    bagof(instanceof(InstanceName, Classname, ParameterList),
+          instanceof(InstanceName, Classname, ParameterList),
+          Instance),
+    !.
+inst(_InstanceName, _Instance) :-
+    write("Instance not found!"),
+    fail.
+
+
+field(Instance, FieldName, Result) :-
+    atom(Instance),
+    field(inst(Instance), FieldName, Result).
+field(_Instance, FieldName, _Result) :-
+    atom(FieldName).
+
 
