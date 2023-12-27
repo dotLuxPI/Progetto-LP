@@ -2,15 +2,15 @@
 %%%% Picco Nicolas 894588
 %%%% Perego Luca 894448
 
+
 def_class(Classname, Parents) :-
     def_class(Classname, Parents, []).
-
 def_class(Classname, Parents, Parts) :-
     catch(classname_check(Classname),
           class_already_defined, fail),
     parents_check(Parents),
     parts_check(Parts),
-    %concat_parts(Parts, Parents, NewParts),
+    concat_parts(Parts, Parents, NewParts),
     assertz(class(Classname, Parents, Parts)).
 
 classname_check(Classname) :-
@@ -38,33 +38,29 @@ parts_check([H | T]) :-
     !,
     parts_check(T).
 
-field_param(FieldName, Value) :-
-    field_param(FieldName, Value, '').
-field_param(FieldName, _, Type) :-
+is_field_param(Field) :-
+    Field = field(FieldName, _Value, Type),
     atom(FieldName),
     atom(Type).
-
 is_field_param(Field) :-
-    Field = field(_, _, _).
-is_field_param(Field) :-
-    Field = field(_, _).
+    Field = field(FieldName, _Value),
+    atom(FieldName).
 
-method(MethodName, Args, Form) :-
+is_method(Method) :-
+    Method = method(MethodName, Args, Form),
     atom(MethodName),
     is_list(Args),
     callable(Form).
 
-is_method(Method) :-
-    Method = method(_, _, _).
-
 concat_parts(Parts, Parents, NewParts) :-
-    append(NewParts, Parts, NewParts),
+    append([], Parts, NewParts),
     check_parents_parts(Parents, NewParts).
 
-check_parents_parts([], _NewParts) :-
+check_parents_parts([], _) :-
     !.
 check_parents_parts([H | T], NewParts) :-
     findall(Parts, class(H, _, Parts), Parts),
+    append_parts(Parts, NewParts),
     check_parents_parts(T, NewParts).
 
 
