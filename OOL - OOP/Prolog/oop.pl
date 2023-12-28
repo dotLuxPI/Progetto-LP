@@ -10,8 +10,8 @@ def_class(Classname, Parents, Parts) :-
           class_already_defined, fail),
     parents_check(Parents),
     parts_check(Parts),
-    concat_parts(Parts, Parents, NewParts),
-    assertz(class(Classname, Parents, Parts)).
+    concat_parts(Parts, Parents, [], Result),
+    assertz(class(Classname, Parents, Result)).
 
 classname_check(Classname) :-
     atom(Classname),
@@ -52,16 +52,34 @@ is_method(Method) :-
     is_list(Args),
     callable(Form).
 
-concat_parts(Parts, Parents, NewParts) :-
-    append([], Parts, NewParts),
-    check_parents_parts(Parents, NewParts).
+concat_parts(Parts, Parents, NewParts, Result) :-
+    append(Parts, [], Result),
+    check_parents_parts(Parents, Result, Result).
 
-check_parents_parts([], _) :-
+check_parents_parts([], _, _Result) :-
     !.
-check_parents_parts([H | T], NewParts) :-
+check_parents_parts([H | T], NewParts, Result) :-
     findall(Parts, class(H, _, Parts), Parts),
-    append_parts(Parts, NewParts),
-    check_parents_parts(T, NewParts).
+    append_parts(NewParts, Parts, Result),
+    check_parents_parts(T, Result, Result).
+
+append_parts(NewParts, [], NewParts) :- !.
+append_parts(NewParts, [field(Key, _Value)| Tail], Result) :-
+    memberchk(field(Key, _), NewParts),
+    append_parts(NewParts, Tail, Result).
+append_parts(NewParts, [method(Key, _, _) | Tail], Result) :-
+    memberchk(method(Key, _, _), NewParts),
+    append_parts(NewParts, Tail, Result).
+append_parts(NewParts, [field(Key, Value) | Tail], Result) :-
+    \+ memberchk(field(Key, _), NewParts),
+    \+ memberchk(method(Key, _, _), NewParts),
+    append(NewParts, [field(Key, Value)], UpdatedNewParts),
+    append_parts(UpdatedNewParts, Tail, Result).
+append_parts(NewParts, [method(Key, Args, Form) | Tail], Result) :-
+    \+ memberchk(field(Key, _), NewParts),
+    \+ memberchk(method(Key, _, _), NewParts),
+    append(NewParts, [method(Key, Args, Form)], UpdatedNewParts),
+    append_parts(UpdatedNewParts, Tail, Result).
 
 
 make(InstanceName, ClassName) :-
