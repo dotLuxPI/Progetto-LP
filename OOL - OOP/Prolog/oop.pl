@@ -52,18 +52,26 @@ is_method(Method) :-
     is_list(Args),
     callable(Form).
 
-concat_parts(Parts, Parents, NewParts, Result) :-
+concat_parts(Parts, Parents, _, Result) :-
     append(Parts, [], Result),
     check_parents_parts(Parents, Result, Result).
 
-check_parents_parts([], _, _Result) :-
-    !.
+check_parents_parts([], _, _Result) :- !.
 check_parents_parts([H | T], NewParts, Result) :-
     findall(Parts, class(H, _, Parts), Parts),
-    append_parts(NewParts, Parts, Result),
+    flatten(Parts, FlatParts),
+    append_parts(NewParts, FlatParts, Result),
+    write("check_parents_parts: "),
+    writeln(Result),
     check_parents_parts(T, Result, Result).
 
-append_parts(NewParts, [], NewParts) :- !.
+
+
+append_parts(NewParts, [], Result) :-
+    Result is NewParts,
+    write("append_parts: "),
+    writeln(Result),
+    !.
 append_parts(NewParts, [field(Key, _Value)| Tail], Result) :-
     memberchk(field(Key, _), NewParts),
     append_parts(NewParts, Tail, Result).
@@ -74,12 +82,14 @@ append_parts(NewParts, [field(Key, Value) | Tail], Result) :-
     \+ memberchk(field(Key, _), NewParts),
     \+ memberchk(method(Key, _, _), NewParts),
     append(NewParts, [field(Key, Value)], UpdatedNewParts),
-    append_parts(UpdatedNewParts, Tail, Result).
+    append(Result, [field(Key, Value)], UpdatedNewResult),
+    append_parts(UpdatedNewParts, Tail, UpdatedNewResult).
 append_parts(NewParts, [method(Key, Args, Form) | Tail], Result) :-
     \+ memberchk(field(Key, _), NewParts),
     \+ memberchk(method(Key, _, _), NewParts),
     append(NewParts, [method(Key, Args, Form)], UpdatedNewParts),
     append_parts(UpdatedNewParts, Tail, Result).
+
 
 
 make(InstanceName, ClassName) :-
@@ -91,6 +101,17 @@ make(InstanceName, ClassName, ParameterList) :-
     is_list(ParameterList),
     is_parameter(ParameterList),
     assertz(instanceof(InstanceName, ClassName, ParameterList)).
+make(InstanceName, ClassName, ParameterList) :-
+    clause(class(ClassName, _, _), _),
+    is_list(ParameterList),
+    is_parameter(ParameterList),
+    catch(is_var(InstanceName), var, write("variabile non istanziata")).
+
+is_var(X) :-
+    var(X),
+    throw(var).
+is_var(X) :-
+    var(X).
 
 is_valid_instancename(InstanceName) :-
     atom(InstanceName),
