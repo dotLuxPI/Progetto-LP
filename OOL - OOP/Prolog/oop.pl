@@ -36,8 +36,14 @@ parts_check([H | T]) :-
     parts_check(T).
 parts_check([H | T]) :-
     is_method(H),
+    create_method_predicate(H),
     !,
     parts_check(T).
+
+create_method_predicate(method(MethodName, Args, Form)) :-
+    Pred =.. [MethodName, _Instance | Args],
+    Clause =.. [':-', Pred, Form],
+    assertz(Clause).
 
 is_field_param(Field) :-
     Field = field(FieldName, _Value, Type),
@@ -112,11 +118,8 @@ make(InstanceName, Classname, ParameterList) :-
     is_parameter(ParameterList),
     concat_parameter(ParameterList, Classname, FinalParameter),
     assertz(instance(InstanceName, Classname, FinalParameter)).
-make(InstanceName, Classname, ParameterList) :-
-    clause(class(Classname, _, _), _),
-    is_list(ParameterList),
-    is_parameter(ParameterList),
-    catch(is_var(InstanceName), var, write("variabile non istanziata")).
+
+
 
 %%%% MAKE UTILS
 is_var(X) :-
@@ -220,7 +223,7 @@ fieldx(Instance, FieldNames, Result) :-
     inst(Instance, Inst),
     fieldx(Inst, FieldNames, Result).
 fieldx(_Instance, [], _Result) :-
-    write('The field names list is empty!'),
+    write('The fieldnames list is empty!'),
     !.
 fieldx(Instance, [H], Result) :-
     field(Instance, H, Result),
