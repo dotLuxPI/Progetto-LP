@@ -41,9 +41,45 @@ parts_check([H | T]) :-
     parts_check(T).
 
 create_method_predicate(method(MethodName, Args, Form)) :-
-    Pred =.. [MethodName, _Instance | Args],
-    Clause =.. [':-', Pred, Form],
+    Pred =.. [MethodName, Instance | Args],
+    Clause =.. [':-', Pred,
+                (pred_check(Instance, MethodName),
+                replace_this(Instance, Form, NewForm),
+                NewForm)],
     assertz(Clause).
+
+pred_check(Instance, MethodName) :-
+    atom(Instance),
+    is_instance(Instance),
+    inst(Instance, instance(_InstanceName, Classname, _ParameterList)),
+    bagof(class(Classname, Parents, Fields),
+          class(Classname, Parents, Fields),
+          [class(_C, _P, F) | _]),
+    memberchk(method(MethodName, _, _), F).
+pred_check(instance(InstanceName, Classname, ParameterList), MethodName) :-
+    is_instance(instance(InstanceName, Classname, ParameterList)),
+    bagof(class(Classname, Parents, Fields),
+          class(Classname, Parents, Fields),
+          [class(_C, _P, F) | _]),
+    memberchk(method(MethodName, _, _), F).
+
+replace_this(Instance, Form, NewForm) :-
+    atom(Instance),
+    maplist(replace_in_predicate(Instance), Form, NewForm).
+replace_this(instance(InstanceName, _Classname, _ParameterList),
+             Form, NewForm) :-
+    maplist(replace_in_predicate(InstanceName), Form, NewForm).
+
+replace_in_predicate(Instance, Predicate, NewPredicate) :-
+    Predicate =.. [Functor | Args],
+    replace_this_in_args(Instance, Args, NewArgs),
+    NewPredicate =.. [Functor | NewArgs].
+
+replace_this_in_args(_, [], []).
+replace_this_in_args(Instance, ['this' | T], [Instance | NewT]) :-
+    replace_this_in_args(Instance, T, NewT).
+replace_this_in_args(Instance, [H | T], [H | NewT]) :-
+    replace_this_in_args(Instance, T, NewT).
 
 is_field_param(Field) :-
     Field = field(FieldName, _Value, Type),
