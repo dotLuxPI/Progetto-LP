@@ -44,7 +44,8 @@ create_method_predicate(method(MethodName, Args, Form)) :-
     Pred =.. [MethodName, Instance | Args],
     Clause =.. [':-', Pred,
                 (pred_check(Instance, MethodName),
-                replace_this(Instance, Form, NewForm),
+                replace_in_predicate(Instance, Form, NewForm),
+                !,
                 NewForm)],
     assertz(Clause).
 
@@ -63,31 +64,52 @@ pred_check(instance(InstanceName, Classname, ParameterList), MethodName) :-
           [class(_C, _P, F) | _]),
     memberchk(method(MethodName, _, _), F).
 
-replace_this(Instance, Form, NewForm) :-
-    atom(Instance),
-    maplist(replace_in_predicate(Instance), Form, NewForm).
-replace_this(instance(InstanceName, _Classname, _ParameterList),
-             Form, NewForm) :-
-    maplist(replace_in_predicate(InstanceName), Form, NewForm).
-
+replace_in_predicate(Instance, (Predicate, Rest), (NewPredicate, NewRest)) :-
+    Predicate =.. [Functor | Args],
+    replace_this_in_args(Instance, Args, NewArgs),
+    NewPredicate =.. [Functor | NewArgs],
+    !,
+    replace_in_predicate(Instance, Rest, NewRest).
 replace_in_predicate(Instance, Predicate, NewPredicate) :-
     Predicate =.. [Functor | Args],
     replace_this_in_args(Instance, Args, NewArgs),
-    NewPredicate =.. [Functor | NewArgs].
+    NewPredicate =.. [Functor | NewArgs],
+    !.
 
 replace_this_in_args(_, [], []).
+replace_this_in_args(Instance, [H | T], [H | NewT]) :-
+    var(H),
+    replace_this_in_args(Instance, T, NewT).
 replace_this_in_args(Instance, ['this' | T], [Instance | NewT]) :-
     replace_this_in_args(Instance, T, NewT).
 replace_this_in_args(Instance, [H | T], [H | NewT]) :-
-    replace_this_in_args(Instance, T, NewT).
+   replace_this_in_args(Instance, T, NewT).
 
 is_field_param(Field) :-
-    Field = field(FieldName, _Value, Type),
+    Field = field(FieldName, Value, Type),
     atom(FieldName),
-    atom(Type).
+    atom(Type),
+    check_type(Value, Type).
 is_field_param(Field) :-
     Field = field(FieldName, _Value),
     atom(FieldName).
+
+check_type(Value, 'integer') :-
+    integer(Value),
+    !.
+check_type(Value, 'float') :-
+    float(Value),
+    !.
+check_type(Value, 'number') :-
+    number(Value),
+    !.
+check_type(Value, 'string') :-
+    atom(Value),
+    !.
+% check_type istanza da definire
+check_type(_Value, _Type) :-
+    write('Invalid Type or Type and Value not matching'),
+    fail.
 
 is_method(Method) :-
     Method = method(MethodName, Args, Form),
@@ -96,8 +118,15 @@ is_method(Method) :-
     callable(Form).
 
 concat_parts(Parts, Parents, Result) :-
+    check_valid_type(Parts, Parents),
     append(Parts, [], TempResult),
     check_parents_parts(Parents, TempResult, Result).
+
+check_valid_type(_Parts, []) :- !.
+check_valid_type([field(Key, _Value) | Tail], [P | T]) :-
+    findall(ParentsParts, class(P, _, ParentsParts), ParentsParts).
+    % da finire
+
 
 check_parents_parts([], NewParts, NewParts) :- !.
 check_parents_parts([H | T], NewParts, Result) :-
