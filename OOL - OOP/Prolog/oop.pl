@@ -2,6 +2,14 @@
 %%%% Picco Nicolas 894588
 %%%% Perego Luca 894448
 
+
+
+%%%% DYNAMIC PREDICATE DEFINITION
+:- dynamic class/3.
+:- dynamic instance/3.
+
+
+
 %%%% DEF_CLASS PREDICATE
 def_class(Classname, Parents) :-
     def_class(Classname, Parents, []).
@@ -94,19 +102,20 @@ is_field_param(Field) :-
     Field = field(FieldName, _Value),
     atom(FieldName).
 
-check_type(Value, 'integer') :-
-    integer(Value),
-    !.
-check_type(Value, 'float') :-
-    float(Value),
-    !.
-check_type(Value, 'number') :-
-    number(Value),
-    !.
-check_type(Value, 'string') :-
+check_type(Value, Type) :-
+    is_instance(Value),
     atom(Value),
+    clause(instance(Value, Type, _), _),
     !.
-% check_type istanza da definire
+check_type(instance(InstanceName, _Classname, _ParameterList), Type) :-
+    is_instance(InstanceName),
+    clause(instance(InstanceName, Type, _), _),
+    !.
+check_type(Value, Type) :-
+    string_lower(Type, X),
+    atom_string(TypePredicate, X),
+    call(TypePredicate, Value),
+    !.
 check_type(_Value, _Type) :-
     write('Invalid Type or Type and Value not matching'),
     fail.
@@ -118,15 +127,8 @@ is_method(Method) :-
     callable(Form).
 
 concat_parts(Parts, Parents, Result) :-
-    check_valid_type(Parts, Parents),
     append(Parts, [], TempResult),
     check_parents_parts(Parents, TempResult, Result).
-
-check_valid_type(_Parts, []) :- !.
-check_valid_type([field(Key, _Value) | Tail], [P | T]) :-
-    findall(ParentsParts, class(P, _, ParentsParts), ParentsParts).
-    % da finire
-
 
 check_parents_parts([], NewParts, NewParts) :- !.
 check_parents_parts([H | T], NewParts, Result) :-
@@ -181,6 +183,7 @@ make(InstanceName, Classname, ParameterList) :-
     clause(class(Classname, _, _), _),
     is_list(ParameterList),
     is_parameter(ParameterList),
+    is_valid_parameter_list(ParameterList, Classname),
     concat_parameter(ParameterList, Classname, FinalParameter),
     assertz(instance(InstanceName, Classname, FinalParameter)).
 
@@ -206,9 +209,25 @@ is_parameter([H | T]) :-
     is_parameter_check(H),
     is_parameter(T).
 
-is_parameter_check(Field = Value) :-
-    atom(Field),
-    atomic(Value).
+is_parameter_check(Field = _Value) :-
+    atom(Field).
+
+is_valid_parameter_list([], _) :-
+    !.
+is_valid_parameter_list([Field = Value | T], Classname) :-
+    bagof(Parts, class(Classname, _, Parts), Parts),
+    flatten(Parts, FlatParts),
+    member(field(Field, _, Type), FlatParts),
+    check_type(Value, Type),
+    !,
+    is_valid_parameter_list(T, Classname).
+is_valid_parameter_list([Field = _Value | T], Classname) :-
+    bagof(Parts, class(Classname, _, Parts), Parts),
+    flatten(Parts, FlatParts),
+    member(field(Field, _), FlatParts),
+    !,
+    is_valid_parameter_list(T, Classname).
+
 
 concat_parameter(ParameterList, Classname, FinalParameter) :-
     findall(class(Classname, Parents, Parts),
@@ -249,8 +268,10 @@ is_class(Classname) :-
 
 %%%% IS_INSTANCE PREDICATE
 is_instance(Value) :-
+    atom(Value),
     is_instance(Value, _).
 is_instance(Value) :-
+    Value = instance(_, _, _),
     clause(Value, _).
 is_instance(Value, Classname) :-
     clause(instance(Value, Classname, _), _).
