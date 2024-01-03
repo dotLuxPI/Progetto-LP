@@ -64,7 +64,8 @@ parts_check([H | T], Classname, SeenFields, SeenMethod) :-
     !,
     parts_check(T, Classname, SeenFields, [Key | SeenMethod]).
 
-create_method_predicate(method(MethodName, Args, Form), Classname) :-
+create_method_predicate(method(MethodName, Args, Form),
+                        Classname) :-
     Pred =.. [MethodName, Instance | Args],
     Clause =.. [':-', Pred,
                 (pred_check(Instance, MethodName, Classname),
@@ -82,14 +83,17 @@ pred_check(Instance, MethodName, Classname) :-
           [class(C, _P, F) | _]),
     C = Classname,
     memberchk(method(MethodName, _, _), F).
-pred_check(instance(InstanceName, Classname, ParameterList), MethodName) :-
+pred_check(instance(InstanceName, Classname, ParameterList),
+           MethodName) :-
     is_instance(instance(InstanceName, Classname, ParameterList)),
     bagof(class(Classname, Parents, Fields),
           class(Classname, Parents, Fields),
           [class(_C, _P, F) | _]),
     memberchk(method(MethodName, _, _), F).
 
-replace_in_predicate(Instance, (Predicate, Rest), (NewPredicate, NewRest)) :-
+replace_in_predicate(Instance,
+                     (Predicate, Rest),
+                     (NewPredicate, NewRest)) :-
     Predicate =.. [Functor | Args],
     replace_this_in_args(Instance, Args, NewArgs),
     NewPredicate =.. [Functor | NewArgs],
@@ -127,14 +131,13 @@ check_type(Value, Type) :-
     atom(Value),
     clause(instance(Value, Type, _), _),
     !.
-check_type(instance(InstanceName, _Classname, _ParameterList), Type) :-
+check_type(instance(InstanceName, _Classname, _ParameterList),
+           Type) :-
     is_instance(InstanceName),
     clause(instance(InstanceName, Type, _), _),
     !.
 check_type(Value, Type) :-
-    string_lower(Type, X),
-    atom_string(TypePredicate, X),
-    call(TypePredicate, Value),
+    is_of_type(Type, Value),
     !.
 check_type(_Value, _Type) :-
     write('Invalid Type or Type and Value not matching'),
@@ -160,36 +163,55 @@ check_parents_parts([H | T], NewParts, Result) :-
 
 append_parts(NewParts, [], NewParts) :-
     !.
-append_parts(NewParts, [field(Key, _Value) | Tail], Result) :-
+append_parts(NewParts,
+             [field(Key, _Value) | Tail],
+             Result) :-
     memberchk(field(Key, _), NewParts),
     append_parts(NewParts, Tail, Result),
     !.
-append_parts(NewParts, [field(Key, _Value) | Tail], Result) :-
+append_parts(NewParts,
+             [field(Key, _Value) | Tail],
+             Result) :-
     memberchk(field(Key, _, _), NewParts),
     append_parts(NewParts, Tail, Result),
     !.
-append_parts(NewParts, [field(Key, _Value, _Type) | Tail], Result) :-
+append_parts(NewParts,
+             [field(Key, _Value, _Type) | Tail],
+             Result) :-
     memberchk(field(Key, _, _), NewParts),
     append_parts(NewParts, Tail, Result),
     !.
-append_parts(NewParts, [field(Key, _Value, _Type) | Tail], Result) :-
+append_parts(NewParts,
+             [field(Key, _Value, _Type) | Tail],
+             Result) :-
     memberchk(field(Key, _), NewParts),
     append_parts(NewParts, Tail, Result),
     !.
-append_parts(NewParts, [method(Key, _, _) | Tail], Result) :-
+append_parts(NewParts,
+             [method(Key, _, _) | Tail],
+             Result) :-
     memberchk(method(Key, _, _), NewParts),
     append_parts(NewParts, Tail, Result),
     !.
-append_parts(NewParts, [field(Key, Value) | Tail], Result) :-
-    append(NewParts, [field(Key, Value)], UpdatedNewParts),
+append_parts(NewParts,
+             [field(Key, Value) | Tail],
+             Result) :-
+    append(NewParts, [field(Key, Value)],
+           UpdatedNewParts),
     append_parts(UpdatedNewParts, Tail, Result),
     !.
-append_parts(NewParts, [field(Key, Value, Type) | Tail], Result) :-
-    append(NewParts, [field(Key, Value, Type)], UpdatedNewParts),
+append_parts(NewParts,
+             [field(Key, Value, Type) | Tail],
+             Result) :-
+    append(NewParts, [field(Key, Value, Type)],
+           UpdatedNewParts),
     append_parts(UpdatedNewParts, Tail, Result),
     !.
-append_parts(NewParts, [method(Key, Args, Form) | Tail], Result) :-
-    append(NewParts, [method(Key, Args, Form)], UpdatedNewParts),
+append_parts(NewParts,
+             [method(Key, Args, Form) | Tail],
+             Result) :-
+    append(NewParts, [method(Key, Args, Form)],
+           UpdatedNewParts),
     append_parts(UpdatedNewParts, Tail, Result),
     !.
 
@@ -201,6 +223,7 @@ make(InstanceName, Classname) :-
 make(InstanceName, Classname, ParameterList) :-
     catch(is_valid_instancename(InstanceName),
           instance_found, fail),
+    atom(Classname),
     clause(class(Classname, _, _), _),
     is_list(ParameterList),
     is_parameter(ParameterList),
@@ -208,15 +231,7 @@ make(InstanceName, Classname, ParameterList) :-
     concat_parameter(ParameterList, Classname, FinalParameter),
     assertz(instance(InstanceName, Classname, FinalParameter)).
 
-
-
 %%%% MAKE UTILS
-is_var(X) :-
-    var(X),
-    throw(var).
-is_var(X) :-
-    var(X).
-
 is_valid_instancename(InstanceName) :-
     atom(InstanceName),
     clause(instance(InstanceName, _, _), _),
@@ -258,24 +273,42 @@ concat_parameter(ParameterList, Classname, FinalParameter) :-
 
 append_parameter(ParameterList, [], ParameterList) :-
     !.
-append_parameter(ParameterList, [field(Key, _Value) | T], FinalParameter) :-
+append_parameter(ParameterList,
+                 [field(Key, _Value) | T],
+                 FinalParameter) :-
     memberchk(Key = _, ParameterList),
     append_parameter(ParameterList, T, FinalParameter),
     !.
-append_parameter(ParameterList, [field(Key, _Value, _Type) | T], FinalParameter) :-
+append_parameter(ParameterList,
+                 [field(Key, _Value, _Type) | T],
+                 FinalParameter) :-
     memberchk(Key = _, ParameterList),
     append_parameter(ParameterList, T, FinalParameter),
     !.
-append_parameter(ParameterList, [method(_Key, _Args, _Form) | T], FinalParameter) :-
+append_parameter(ParameterList,
+                 [method(_Key, _Args, _Form) | T],
+                 FinalParameter) :-
     append_parameter(ParameterList, T, FinalParameter),
     !.
-append_parameter(ParameterList, [field(Key, Value) | T], FinalParameter) :-
-    append(ParameterList, [Key = Value], IntermediateParameter),
-    append_parameter(IntermediateParameter, T, FinalParameter),
+append_parameter(ParameterList,
+                 [field(Key, Value) | T],
+                 FinalParameter) :-
+    append(ParameterList,
+           [Key = Value],
+           IntermediateParameter),
+    append_parameter(IntermediateParameter,
+                     T,
+                     FinalParameter),
     !.
-append_parameter(ParameterList, [field(Key, Value, _Type) | T], FinalParameter) :-
-    append(ParameterList, [Key = Value], IntermediateParameter),
-    append_parameter(IntermediateParameter, T, FinalParameter),
+append_parameter(ParameterList,
+                 [field(Key, Value, _Type) | T],
+                 FinalParameter) :-
+    append(ParameterList,
+           [Key = Value],
+           IntermediateParameter),
+    append_parameter(IntermediateParameter,
+                     T,
+                     FinalParameter),
     !.
 
 
@@ -316,7 +349,9 @@ field(Instance, FieldName, Result) :-
     atom(Instance),
     inst(Instance, Inst),
     field(Inst, FieldName, Result).
-field(instance(_InstanceName, _Classname, ParameterList), FieldName, Result) :-
+field(instance(_InstanceName, _Classname, ParameterList),
+      FieldName,
+      Result) :-
     atom(FieldName),
     memberchk(FieldName = Value, ParameterList),
     Result = Value.
