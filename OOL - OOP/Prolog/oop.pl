@@ -37,16 +37,32 @@ parents_check([H | T]) :-
     !,
     parents_check(T).
 
-parts_check([], _) :- !.
-parts_check([H | T], Classname) :-
-    is_field_param(H),
+parts_check(Parts, Classname) :-
+    parts_check(Parts, Classname, [], []).
+parts_check([], _, _, _) :- !.
+parts_check([H | _T], _Classname, SeenFields, _SeenMethod) :-
+    is_field_param(H, Key),
+    memberchk(Key, SeenFields),
+    write('Cannot define two field '),
+    writeln('with the same key [FieldName] in the same class!'),
     !,
-    parts_check(T, Classname).
-parts_check([H | T], Classname) :-
-    is_method(H),
+    fail.
+parts_check([H | _T], _Classname, _SeenFields, SeenMethod) :-
+    is_method(H, Key),
+    memberchk(Key, SeenMethod),
+    write('Cannot define two method '),
+    writeln('with the same key [MethodName] in the same class!'),
+    !,
+    fail.
+parts_check([H | T], Classname, SeenFields, SeenMethod) :-
+    is_field_param(H, Key),
+    !,
+    parts_check(T, Classname, [Key, SeenFields], SeenMethod).
+parts_check([H | T], Classname, SeenFields, SeenMethod) :-
+    is_method(H, Key),
     create_method_predicate(H, Classname),
     !,
-    parts_check(T, Classname).
+    parts_check(T, Classname, SeenFields, [Key | SeenMethod]).
 
 create_method_predicate(method(MethodName, Args, Form), Classname) :-
     Pred =.. [MethodName, Instance | Args],
@@ -94,14 +110,17 @@ replace_this_in_args(Instance, ['this' | T], [Instance | NewT]) :-
 replace_this_in_args(Instance, [H | T], [H | NewT]) :-
     replace_this_in_args(Instance, T, NewT).
 
-is_field_param(Field) :-
+
+is_field_param(Field, Key) :-
     Field = field(FieldName, Value, Type),
     atom(FieldName),
     atom(Type),
-    check_type(Value, Type).
-is_field_param(Field) :-
+    check_type(Value, Type),
+    Key = FieldName.
+is_field_param(Field, Key) :-
     Field = field(FieldName, _Value),
-    atom(FieldName).
+    atom(FieldName),
+    Key = FieldName.
 
 check_type(Value, Type) :-
     is_instance(Value),
@@ -121,11 +140,12 @@ check_type(_Value, _Type) :-
     write('Invalid Type or Type and Value not matching'),
     fail.
 
-is_method(Method) :-
+is_method(Method, Key) :-
     Method = method(MethodName, Args, Form),
     atom(MethodName),
     is_list(Args),
-    callable(Form).
+    callable(Form),
+    Key = MethodName.
 
 concat_parts(Parts, Parents, Result) :-
     append(Parts, [], TempResult),
