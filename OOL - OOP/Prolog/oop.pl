@@ -17,7 +17,7 @@ def_class(Classname, Parents, Parts) :-
     catch(classname_check(Classname),
           class_already_defined, fail),
     parents_check(Parents),
-    parts_check(Parts),
+    parts_check(Parts, Classname),
     concat_parts(Parts, Parents, Result),
     assertz(class(Classname, Parents, Result)).
 
@@ -37,33 +37,34 @@ parents_check([H | T]) :-
     !,
     parents_check(T).
 
-parts_check([]) :- !.
-parts_check([H | T]) :-
+parts_check([], _) :- !.
+parts_check([H | T], Classname) :-
     is_field_param(H),
     !,
-    parts_check(T).
-parts_check([H | T]) :-
+    parts_check(T, Classname).
+parts_check([H | T], Classname) :-
     is_method(H),
-    create_method_predicate(H),
+    create_method_predicate(H, Classname),
     !,
-    parts_check(T).
+    parts_check(T, Classname).
 
-create_method_predicate(method(MethodName, Args, Form)) :-
+create_method_predicate(method(MethodName, Args, Form), Classname) :-
     Pred =.. [MethodName, Instance | Args],
     Clause =.. [':-', Pred,
-                (pred_check(Instance, MethodName),
-                replace_in_predicate(Instance, Form, NewForm),
-                !,
-                NewForm)],
+                (pred_check(Instance, MethodName, Classname),
+                 replace_in_predicate(Instance, Form, NewForm),
+                 !,
+                 NewForm)],
     assertz(Clause).
 
-pred_check(Instance, MethodName) :-
+pred_check(Instance, MethodName, Classname) :-
     atom(Instance),
     is_instance(Instance),
-    inst(Instance, instance(_InstanceName, Classname, _ParameterList)),
-    bagof(class(Classname, Parents, Fields),
-          class(Classname, Parents, Fields),
-          [class(_C, _P, F) | _]),
+    inst(Instance, instance(_InstanceName, Class, _ParameterList)),
+    bagof(class(Class, Parents, Fields),
+          class(Class, Parents, Fields),
+          [class(C, _P, F) | _]),
+    C = Classname,
     memberchk(method(MethodName, _, _), F).
 pred_check(instance(InstanceName, Classname, ParameterList), MethodName) :-
     is_instance(instance(InstanceName, Classname, ParameterList)),
@@ -91,7 +92,7 @@ replace_this_in_args(Instance, [H | T], [H | NewT]) :-
 replace_this_in_args(Instance, ['this' | T], [Instance | NewT]) :-
     replace_this_in_args(Instance, T, NewT).
 replace_this_in_args(Instance, [H | T], [H | NewT]) :-
-   replace_this_in_args(Instance, T, NewT).
+    replace_this_in_args(Instance, T, NewT).
 
 is_field_param(Field) :-
     Field = field(FieldName, Value, Type),
