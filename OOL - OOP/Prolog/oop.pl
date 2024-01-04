@@ -44,14 +44,14 @@ parts_check([H | _T], _Classname, SeenFields, _SeenMethod) :-
     is_field_param(H, Key),
     memberchk(Key, SeenFields),
     write('Cannot define two field '),
-    writeln('with the same key [FieldName] in the same class!'),
+    writeln('with the same name in the same class!'),
     !,
     fail.
 parts_check([H | _T], _Classname, _SeenFields, SeenMethod) :-
     is_method(H, Key),
     memberchk(Key, SeenMethod),
     write('Cannot define two method '),
-    writeln('with the same key [MethodName] in the same class!'),
+    writeln('with the same name in the same class!'),
     !,
     fail.
 parts_check([H | T], Classname, SeenFields, SeenMethod) :-
@@ -106,6 +106,10 @@ replace_in_predicate(Instance, Predicate, NewPredicate) :-
     !.
 
 replace_this_in_args(_, [], []).
+replace_this_in_args(Instance, [H | T], [NewH | NewT]) :-
+    compound(H),
+    replace_in_predicate(Instance, H, NewH),
+    replace_this_in_args(Instance, T, NewT).
 replace_this_in_args(Instance, [H | T], [H | NewT]) :-
     var(H),
     replace_this_in_args(Instance, T, NewT).
@@ -140,7 +144,8 @@ check_type(Value, Type) :-
     is_of_type(Type, Value),
     !.
 check_type(_Value, _Type) :-
-    write('Invalid Type or Type and Value not matching'),
+    writeln('Invalid Type or Type and Value not matching'),
+    !,
     fail.
 
 is_method(Method, Key) :-
@@ -221,15 +226,31 @@ append_parts(NewParts,
 make(InstanceName, Classname) :-
     make(InstanceName, Classname, []).
 make(InstanceName, Classname, ParameterList) :-
+    atom(Classname),
+    clause(class(Classname, _, _), _),
+    is_list(ParameterList),
     catch(is_valid_instancename(InstanceName),
           instance_found, fail),
+    is_parameter(ParameterList),
+    is_valid_parameter_list(ParameterList, Classname),
+    concat_parameter(ParameterList, Classname, FinalParameter),
+    assertz(instance(InstanceName, Classname, FinalParameter)),
+    !.
+make(InstanceName, Classname, ParameterList) :-
+    var(InstanceName),
     atom(Classname),
     clause(class(Classname, _, _), _),
     is_list(ParameterList),
     is_parameter(ParameterList),
     is_valid_parameter_list(ParameterList, Classname),
     concat_parameter(ParameterList, Classname, FinalParameter),
-    assertz(instance(InstanceName, Classname, FinalParameter)).
+    InstanceName = instance('anonymous', Classname, FinalParameter),
+    !.
+make(InstanceName, Classname, ParameterList) :-
+    bagof(instance(InstanceName, Classname, ParameterList),
+          instance(InstanceName, Classname, ParameterList),
+          Result),
+    member(instance(InstanceName, Classname, ParameterList), Result).
 
 %%%% MAKE UTILS
 is_valid_instancename(InstanceName) :-
@@ -370,6 +391,11 @@ fieldx(_Instance, [], _Result) :-
 fieldx(Instance, [H], Result) :-
     field(Instance, H, Result),
     !.
+fieldx(Instance, [H | T], Result) :-
+    field(Instance, H, Res),
+    is_instance(Res),
+    Res = instance(InstanceName, _Classname, _ParameterList),
+    fieldx(InstanceName, T, Result).
 fieldx(Instance, [H | T], Result) :-
     field(Instance, H, _),
     fieldx(Instance, T, Result).
