@@ -1,4 +1,6 @@
 ;;;; Perego Luca 894448
+;;;; Magliani Andrea
+;;;; Picco Nicolas
 
 (setq *handle-warn-on-redefinition* :IGNORE)
 
@@ -6,12 +8,28 @@
 (defvar *classes-specs* (make-hash-table :test 'equal))
 
 (defun add-class-spec (name class-spec)
-    (setf (gethash name *classes-specs*) class-spec)
-)
+    (setf (gethash name *classes-specs*) class-spec))
 
 (defun class-spec (name)
-    (gethash name *classes-specs*)
-)
+    (gethash name *classes-specs*))
+
+;;class utils
+(defun remove-class (name)
+  (if (symbolp name)
+      (remhash name *classes-specs*)
+    (error "classname must be a symbol")))
+
+(defun remove-all-classes ()
+    (clrhash *classes-specs*))
+
+(defun find-class (classname)
+    (if (symbolp classname)
+        (if (eql classname (quote all))
+            (hash-table-values *classes-specs*)
+            (list (gethash classname *classes-specs*))
+        )
+        (error "classname must be a symbol")))
+
 
 ;; def-class primitive
 (defun def-class (classname &optional (parents '()) parts)
@@ -34,7 +52,7 @@
                             (add-class-spec classname (list 
                                 :classname classname 
                                 :parents parents 
-                                :parts newParts
+                                :parts parts
                             ))
 
                             (class-spec classname)) 
