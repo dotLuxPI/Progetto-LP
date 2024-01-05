@@ -11,95 +11,80 @@
     (gethash name *classes-specs*)
 )
 
-;; make-class primitive
-(defun make-class (class-name &optional (parents '()) part)
+;; def-class primitive
+(defun def-class (classname parts) def-class(classname '() parts))
+(defun def-class (classname parents parts)
     
     ;; class-name type-check & existance
-    (if (stringp class-name) 
-        (if (not (gethash class-name *classes-specs*))    
+    (if (stringp classname) 
+        (if (not (gethash classname *classes-specs*))    
 
             ;; parents type-check
             (if (or (listp parents) (null parents))
                 (if (every (or #'is-class #'null) parents)
                     
-                    ;; part type-check
-                    (if (listp part)
-                        (if (every (or #'is-method #'is-field) part)
+                    ;; parts type-check
+                    (if (listp parts)
 
                             ;; create class and adds it to the hash-table
                             (progn
-                                (add-class-spec class-name (list 
-                                    :class-name class-name 
-                                    :parents parents 
-                                    :part part
-                                ))
-                                (class-spec class-name)
-                            ) 
-                            (error (format NIL "~a ~a"
-                                "(make-class)"
-                                "part must be a list of methods and fields"
-                            ))
-                        ) 
-                        (error (format NIL "~a ~a"
-                            "(make-class)"
-                            "part must be a list of methods and fields"
-                        ))
-                    ) 
-                    (error (format NIL "~a ~a"
-                        "(make-class)"
-                        "part must be a list of methods and fields"
-                    ))
-                ) 
-                (error "(make-class) parents must be a list of classes")
-            ) 
-            (error "(make-class) parents must be a list of classes")
-        ) 
-        (error "(make-class) class-name already exists")
-    ) 
-    (error "(make-class) class-name must be a string")
-)
+                                (let newParts (parts-check parts))
 
-;; make primitive
-(defun make (class-name (cons field-name value))
-    (if (stringp class-name)
-        (if (is-class class-name)
-            ;; code
-            (error "(make) class-name must identify an existing class")
+                                (add-class-spec classname (list 
+                                    :classname classname 
+                                    :parents parents 
+                                    :parts newParts
+                                ))
+
+                                (class-spec classname)) 
+                        (error "parts must be a list of methods and fields"))
+                    (error "parents must be a list of existing classes")) 
+                (error "parents must be a list of classes")) 
+            (error "classname already exists")) 
+        (error "classname must be a string")))
+
+;; parts-check
+(defun parts-check (parts)
+    (if (listp parts)
+        (if (every (or #'method #'field) parts)
+            (concat-parts parts)
+            (error "parts must be a list of methods and fields")
         )
-        (error "(make) class-name must be a string")
+        (error "parts must be a list of methods and fields")
     )
 )
 
-;; primitiva method
-(defun method (method-name))
+;; field structure
+(defun field (field-name field-value) field(field-name field-value T))
+(defun field (field-name field-value field-type)
+    (if (stringp field-name)
+        (if (or (stringp field-type) (eql field-type T))
+            (if (or (typep field-value (intern field-type)) (eql field-type T))
+                (list
+                    :field-name field-name 
+                    :field-value field-value	
+                    :field-type field-type
+                )
+                (error "field-type is not valid or type mismatch")
+            )
+            (error "field-type must be a string")
+        )
+        (error "field-name must be a string")
+    )
+)
 
-;; primitiva field
-(defun field (instance field-name))
+;; method structure
+(defun method (method-name argslist form) T)
 
-;; primitiva field* 
-(defun field* (instance field-name))
 
-;; primitiva fields
-(defun fields (instance fie))
-
-;;;; CONTROLLI
 
 ;; controllo classe
-(defun is-class (class-name)
-    (if (stringp class-name)
-        (if (gethash class-name *classes-specs*)
+(defun is-class (classname)
+    (if (stringp classname)
+        (if (gethash classname *classes-specs*)
             T 
             NIL
         )
-        (error "(is-class) class-name must be a string")
+        (error "class-name must be a string")
     )
 )
-
-;; controllo istanza
-(defun is-instance (value class-name))
-
-;; controllo metodo
-(defun is-method (method-name))
-
-;; controllo field
-(defun is-field (field-name))
