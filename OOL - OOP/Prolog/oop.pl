@@ -369,13 +369,15 @@ inst(_InstanceName, _Instance) :-
 field(Instance, FieldName, Result) :-
     atom(Instance),
     inst(Instance, Inst),
-    field(Inst, FieldName, Result).
+    field(Inst, FieldName, Result),
+    !.
 field(instance(_InstanceName, _Classname, ParameterList),
       FieldName,
       Result) :-
     atom(FieldName),
     memberchk(FieldName = Value, ParameterList),
-    Result = Value.
+    Result = Value,
+    !.
 
 
 
@@ -394,10 +396,14 @@ fieldx(Instance, [H], Result) :-
 fieldx(Instance, [H | T], Result) :-
     field(Instance, H, Res),
     is_instance(Res),
-    Res = instance(InstanceName, _Classname, _ParameterList),
+    inst(Res, instance(InstanceName,
+                       _Classname,
+                       _ParameterList)),
+    !,
     fieldx(InstanceName, T, Result).
 fieldx(Instance, [H | T], Result) :-
     field(Instance, H, _),
+    !,
     fieldx(Instance, T, Result).
 
 
