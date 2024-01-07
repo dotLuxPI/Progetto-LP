@@ -41,7 +41,7 @@ parts_check(Parts, Classname) :-
     parts_check(Parts, Classname, [], []).
 parts_check([], _, _, _) :- !.
 parts_check([H | _T], _Classname, SeenFields, _SeenMethod) :-
-    is_field_param(H, Key),
+    H = field(Key, _Value, _),
     memberchk(Key, SeenFields),
     write('Cannot define two field '),
     writeln('with the same name in the same class!'),
@@ -57,7 +57,7 @@ parts_check([H | _T], _Classname, _SeenFields, SeenMethod) :-
 parts_check([H | T], Classname, SeenFields, SeenMethod) :-
     is_field_param(H, Key),
     !,
-    parts_check(T, Classname, [Key, SeenFields], SeenMethod).
+    parts_check(T, Classname, [Key | SeenFields], SeenMethod).
 parts_check([H | T], Classname, SeenFields, SeenMethod) :-
     is_method(H, Key),
     create_method_predicate(H, Classname),
@@ -131,14 +131,12 @@ is_field_param(Field, Key) :-
     Key = FieldName.
 
 check_type(Value, Type) :-
-    is_instance(Value),
     atom(Value),
-    clause(instance(Value, Type, _), _),
+    is_instance(Value, Type),
     !.
 check_type(instance(InstanceName, _Classname, _ParameterList),
            Type) :-
-    is_instance(InstanceName),
-    clause(instance(InstanceName, Type, _), _),
+    is_instance(InstanceName, Type),
     !.
 check_type(Value, Type) :-
     is_of_type(Type, Value),
@@ -347,9 +345,32 @@ is_instance(Value) :-
     is_instance(Value, _).
 is_instance(Value) :-
     Value = instance(_, _, _),
-    clause(Value, _).
+    clause(Value, _),
+    !.
 is_instance(Value, Classname) :-
-    clause(instance(Value, Classname, _), _).
+    clause(instance(Value, Classname, _), _),
+    !.
+is_instance(Value, Classname) :-
+    findall(Class,
+            instance(Value, Class, _),
+            [H | _]),
+    has_parents(H, Classname),
+    !.
+
+%%%% IS_INSTANCE UTILS
+has_parents(Class, SuperClass) :-
+    findall(Parents, class(Class, Parents, _), P),
+    flatten(P, FlatParents),
+    get_parents(FlatParents, AllParents),
+    memberchk(SuperClass, AllParents).
+
+get_parents([], []).
+get_parents([H | T], AllParents) :-
+    findall(Parents, class(H, Parents, _), P),
+    flatten(P, FlatP),
+    append([H], FlatP, TempParents),
+    get_parents(T, RestParents),
+    append(TempParents, RestParents, AllParents).
 
 
 
@@ -369,15 +390,13 @@ inst(_InstanceName, _Instance) :-
 field(Instance, FieldName, Result) :-
     atom(Instance),
     inst(Instance, Inst),
-    field(Inst, FieldName, Result),
-    !.
+    field(Inst, FieldName, Result).
 field(instance(_InstanceName, _Classname, ParameterList),
       FieldName,
       Result) :-
     atom(FieldName),
     memberchk(FieldName = Value, ParameterList),
-    Result = Value,
-    !.
+    Result = Value.
 
 
 
@@ -386,7 +405,8 @@ fieldx(Instance, FieldNames, Result) :-
     atom(Instance),
     is_list(FieldNames),
     inst(Instance, Inst),
-    fieldx(Inst, FieldNames, Result).
+    fieldx(Inst, FieldNames, Result),
+    !.
 fieldx(_Instance, [], _Result) :-
     write('The fieldnames list is empty!'),
     !.
@@ -396,14 +416,11 @@ fieldx(Instance, [H], Result) :-
 fieldx(Instance, [H | T], Result) :-
     field(Instance, H, Res),
     is_instance(Res),
-    inst(Res, instance(InstanceName,
-                       _Classname,
-                       _ParameterList)),
-    !,
-    fieldx(InstanceName, T, Result).
+    fieldx(Res, T, Result),
+    !.
 fieldx(Instance, [H | T], Result) :-
     field(Instance, H, _),
-    !,
-    fieldx(Instance, T, Result).
+    fieldx(Instance, T, Result),
+    !.
 
 
