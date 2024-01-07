@@ -22,10 +22,13 @@
 (defun remove-all-classes ()
     (clrhash *classes-specs*))
 
-(defun find-all (classname)
-        (if (symbolp classname)
+(defun find-class (classname)
+    (if (symbolp classname)
+        (if (eql classname (quote all))
+            (hash-table-values *classes-specs*)
             (list (gethash classname *classes-specs*))
-            (error "classname must be a symbol")))
+        )
+        (error "classname must be a symbol")))
 
 
 ;; def-class primitive
@@ -63,7 +66,7 @@
 ;; parts-check
 (defun parts-check (parts)
     (if (listp parts)
-        (if (every (or #'is-method #'is-field) parts)
+        (if (every (or #'methodp #'fieldp) parts)
             T
             (error "parts must be a list of methods and fields")
         )
@@ -74,11 +77,15 @@
 
 
 ;; field structure
-(defun is-field (field-name field-value &optional (field-type T))
+(defun field (field-name field-value &optional (field-type T))
     (if (symbolp field-name)
         (if (or (symbolp field-type) (eql field-type T))
             (if (or (typep field-value field-type) (eql field-type T))
-                T
+                (list
+                    :field-name field-name 
+                    :field-value field-value	
+                    :field-type field-type
+                )
                 (error "field-type is not valid or type mismatch")
             )
             (error "field-type must be a symbol")
@@ -101,12 +108,31 @@
       (push (field name value type) result))))
 
 
+
+(defun fieldp (f)
+  (if (and 
+       (listp f)
+       (= 6 (length f))
+       (eq (first f) :field-name)
+       (symbolp (second f))
+       (eq (third f) :field-value)
+       (or (typep (fourth f) (sixth f)) (eql (sixth f) T))
+       (or (eq (fifth f) :field-type) (eql (third f) T))
+       (or (symbolp (sixth f)) (eql (sixth f) T)))
+
+      T
+    NIL))
+
 ;; method structure
-(defun is-method (method-name argslist form) T)
+(defun method (method-name argslist form) T)
+
+(defun methodp (m) T)
+
+(defun methodp (name args form) T)
 
 
 
-;; class control
+;; controllo classe
 (defun is-class (classname)
   (if (symbolp classname)
       (if (gethash classname *classes-specs*) T NIL)
