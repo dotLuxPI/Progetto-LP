@@ -63,7 +63,7 @@
 ;; parts-check
 (defun parts-check (parts)
     (if (listp parts)
-        (if (every #'is-field parts)
+        (if (every #'is-valid-field-structure parts)
             T
             (error "parts must be a list of methods and fields")
         )
@@ -74,7 +74,13 @@
 
 
 ;; field structure
+(defun is-valid-field-structure (field)
+  (if (and (= 4 (length field)) (eql (first field) 'field))
+      (is-field (second field) (third field) (fourth field))
+    NIL))
+
 (defun is-field (field-name field-value &optional (field-type T))
+  (print field-name)
     (if (symbolp field-name)
         (if (or (symbolp field-type) (eql field-type T))
             (if (or (typep field-value field-type) (eql field-type T))
@@ -86,6 +92,8 @@
         (error "field-name must be a symbol")
     )
 )
+
+
 
 (defun fields (&rest field-specs)
   (if (null (car field-specs))
