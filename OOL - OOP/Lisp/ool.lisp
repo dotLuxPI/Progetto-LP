@@ -2,10 +2,8 @@
 ;;;; Magliani Andrea
 ;;;; Picco Nicolas
 
-(setq *handle-warn-on-redefinition* :IGNORE)
-
 ;; hash-table declaration & manipulation
-(defvar *classes-specs* (make-hash-table :test 'equal))
+(defparameter *classes-specs* (make-hash-table))
 
 (defun add-class-spec (name class-spec)
     (setf (gethash name *classes-specs*) class-spec))
@@ -30,44 +28,70 @@
 
 ;; def-class primitive
 (defun def-class (classname &optional (parents '()) parts)
-
     ;; class-name type-check & existance
     (if (symbolp classname) 
-
         (if (not (gethash classname *classes-specs*))    
-
             ;; parents type-check
             (if (or (listp parents) (null parents))
-                (if (every #'is-class parents)
-
+                (if (is-class-list parents)
                     ;; parts type-check
-                    (if (parts-check parts)
 
+                    (let(all-parents-parts (get-all-parents-parts parents))
+                       (if (parts-check parts)
                         ;; create class and adds it to the hash-table
                         (progn
-
                             (add-class-spec classname (list 
                                 :classname classname 
                                 :parents parents 
                                 :parts parts
                             ))
-
                             (class-spec classname)) 
                         (error "parts must be a list of methods and fields")
                     )
+                    )
+
+                    
                     (error "parents must be a list of existing classes")) 
                 (error "parents must be a list of classes")) 
             (error "classname already exists")) 
         (error "classname must be a symbol")))
 
+(defun is-class-list (parents)
+    (if (null parents)
+        t
+        (and (is-class (car parents)) (is-class-list (cdr parents)))))
+
+;; get-all-parents-parts
+(defun get-all-parents-parts (classname)
+    (let ((class (class-spec classname)))
+        (if class
+            (let ((parents (getf class :parents)))
+                (if parents
+                    (append (getf class :parts) 
+                            (mapcan #'get-all-parents-parts parents))
+                    (getf class :parts)))
+            (error "Class not found")
+        )
+    )
+)
+
 ;; parts-check
 (defun parts-check (parts)
-    (if (listp parts)
-        (if (every #'is-valid-field-structure parts)
+    (if (and (listp parts) (eql (car parts) 'fields))
+        (let ((fields (cdr parts)))
+          (if (is-valid-fields fields)
             T
             (error "parts must be a list of methods and fields")
+          )
         )
         (error "parts must be a list of methods and fields")
+    )
+)
+
+(defun is-valid-fields (fields)
+    (if (null fields)
+        T
+        (and (is-valid-field-structure (car fields)) (is-valid-fields (cdr fields)))
     )
 )
 
@@ -75,23 +99,20 @@
 
 ;; field structure
 (defun is-valid-field-structure (field)
-  (if (and (= 4 (length field)) (eql (first field) 'field))
-      (is-field (second field) (third field) (fourth field))
-    NIL))
+  (if (= 3 (length field))
+      (is-field (first field) (second field) (third field))
+    (if (= 2 (length field))
+        (is-field (first field) (second field) T) NIL)))
 
 (defun is-field (field-name field-value &optional (field-type T))
-  (print field-name)
-    (if (symbolp field-name)
-        (if (or (symbolp field-type) (eql field-type T))
-            (if (or (typep field-value field-type) (eql field-type T))
-                T
-                (error "field-type is not valid or type mismatch")
-            )
-            (error "field-type must be a symbol")
-        )
-        (error "field-name must be a symbol")
-    )
-)
+  (if (symbolp field-name)
+      (if (or (symbolp field-type) (eql field-type T))
+          (if (or (typep field-value field-type) 
+                  (eql field-type T))
+              T
+            (error "field-type is not valid or type mismatch"))
+        (error "field-type must be a symbol"))
+    (error "field-name must be a symbol")))
 
 
 
