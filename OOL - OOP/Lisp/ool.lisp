@@ -1,15 +1,15 @@
 ;;;; Perego Luca 894448
-;;;; Magliani Andrea 894395 (capo supremo)
+;;;; Magliani Andrea 894395
 ;;;; Picco Nicolas 894588
 
 ;; hash-table declaration & manipulation
 (defparameter *classes-specs* (make-hash-table))
 
 (defun add-class-spec (name class-spec)
-    (setf (gethash name *classes-specs*) class-spec))
+  (setf (gethash name *classes-specs*) class-spec))
 
 (defun class-spec (name)
-    (gethash name *classes-specs*))
+  (gethash name *classes-specs*))
 
 ;;class utils
 (defun remove-class (name)
@@ -18,32 +18,32 @@
     (error "classname must be a symbol")))
 
 (defun remove-all-classes ()
-    (clrhash *classes-specs*))
+  (clrhash *classes-specs*))
 
 (defun find-all (classname)
-        (if (symbolp classname)
-            (list (gethash classname *classes-specs*))
-            (error "classname must be a symbol")))
+  (if (symbolp classname)
+      (list (gethash classname *classes-specs*))
+    (error "classname must be a symbol")))
 
 (defun def-class (classname &optional (parents '()) parts)
   (if (symbolp classname) 
       (if (not (gethash classname *classes-specs*))    
           (if (or (listp parents) (null parents))
               (if (is-class-list parents)
-                 (if (parts-check parts)
-                     (let ((newParts (get-all-parents-parts parents parts)))
+                  (if (parts-check parts)
+                      (let ((newParts (format-field-list (get-all-parents-parts parents parts))))
+                        (format t "output remove-duplicates: ~a~%~%" newParts)
                         (progn
                           (add-class-spec classname (list 
-                                                    :classname classname 
-                                                    :parents parents 
-                                                    :parts newParts))
-                          (class-spec classname))
-                      )
-                  (error "parts must be a list of methods and fields"))
-              (error "parents must be a list of existing classes")) 
-          (error "parents must be a list of classes")) 
-      (error "classname already exists")) 
-  (error "classname must be a symbol")))
+                                                     :classname classname 
+                                                     :parents parents 
+                                                     :parts newParts))
+                          (class-spec classname)))
+                    (error "parts must be a list of methods and fields"))
+                (error "parents must be a list of existing classes")) 
+            (error "parents must be a list of classes")) 
+        (error "classname already exists")) 
+    (error "classname must be a symbol")))
 
 
 
@@ -60,14 +60,27 @@
              (parent-spec (class-spec parent))
              (parent-fields (to-list (getf parent-spec :parts)))
              (parts (to-list parts)))
-        (append (remove-duplicates (append (cdr parent-fields) (cdr parts)) :test #'equal :key #'car)
-        (get-all-parents-parts (cdr parents) parts) ))
-    parts))
+        (append (append (cdr parent-fields) (cdr parts))
+                (get-all-parents-parts (cdr parents) parts))) parts))
 
 (defun to-list (x)
-  (if (listp x)
-      x
-      (list x)))
+  (if (listp x) x (list x)))
+
+(defun format-field-list (field-list)
+  (format t "input remove 'field: ~a~%" field-list)
+  (remove 'fields field-list) ;;removes 'fields keyword
+  (format t "output remove 'field: ~a~%" field-list)
+  (remove-duplicate-fields field-list))
+
+(defun remove-duplicate-fields (field-list)
+  (format t "input remove-duplicates: ~a~%" (cdr field-list))
+  (let ((seen-names '()))
+    (remove-if 
+     (lambda (field)
+       (let ((name (first field)))
+         (if (member name seen-names :test #'equal)
+             t ;; removes duplicate
+           (progn (push name seen-names) nil)))) (cdr field-list)))) ;; ignores fields keyword
 
 ;; parts-check
 (defun parts-check (parts)
