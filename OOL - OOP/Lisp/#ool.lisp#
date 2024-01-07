@@ -63,7 +63,7 @@
 ;; parts-check
 (defun parts-check (parts)
     (if (listp parts)
-        (if (every (or #'is-method #'is-field) parts)
+        (if (every #'is-field parts)
             T
             (error "parts must be a list of methods and fields")
         )
