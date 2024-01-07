@@ -25,68 +25,46 @@
             (list (gethash classname *classes-specs*))
             (error "classname must be a symbol")))
 
-
-;; def-class primitive
 (defun def-class (classname &optional (parents '()) parts)
-    ;; class-name type-check & existance
-    (if (symbolp classname) 
-        (if (not (gethash classname *classes-specs*))    
-            ;; parents type-check
-            (if (or (listp parents) (null parents))
-                (if (is-class-list parents)
-                    ;; parts type-check
-
-                    (let ((newParts (concat-parts (get-all-parents-parts parents) parts)))
-                      (print (get-all-parents-parts parents))
-                       (if (parts-check newParts)
-                        ;; create class and adds it to the hash-table
+  (if (symbolp classname) 
+      (if (not (gethash classname *classes-specs*))    
+          (if (or (listp parents) (null parents))
+              (if (is-class-list parents)
+                  (let ((newParts (get-all-parents-parts parents parts)))
+                    (if (parts-check newParts)
                         (progn
-                            (add-class-spec classname (list 
-                                :classname classname 
-                                :parents parents 
-                                :parts newParts
-                            ))
-                            (class-spec classname)) 
-                        (error "parts must be a list of methods and fields")
-                    
-                    )
-                    )
+                          (add-class-spec classname (list 
+                                                    :classname classname 
+                                                    :parents parents 
+                                                    :parts newParts))
+                          (class-spec classname)) 
+                        (error "parts must be a list of methods and fields")))
+                  (error "parents must be a list of existing classes")) 
+              (error "parents must be a list of classes")) 
+          (error "classname already exists")) 
+      (error "classname must be a symbol")))
 
-                    
-                    (error "parents must be a list of existing classes")) 
-                (error "parents must be a list of classes")) 
-            (error "classname already exists")) 
-        (error "classname must be a symbol")))
+
 
 (defun is-class-list (parents)
-    (if (null parents)
-        t
-        (and (is-class (car parents)) (is-class-list (cdr parents)))))
+  (if (null parents)
+      t
+    (and (is-class (car parents)) (is-class-list (cdr parents)))))
 
-;; get-all-parents-parts
-(defun get-all-parents-parts (classname) 
-  (let ((class (class-spec classname)))
-    (print(if class t nil))
-        (if class
-            (let ((parents (getf class :parents)))
-                (if parents
-                    (append (getf class :parts) 
-                            (mapcan #'get-all-parents-parts parents))
-                    (getf class :parts)))
-           '()
-        )
-    )
-)
 
-;; concat parts
-(defun concat-parts (parents-parts parts)
-  (cond
-    ((null parents-parts) parts)
-    ((null parts) parents-parts)
-    ((cons (car parents-parts) (car parts))
-     (cons (concat-parts (cdr parents-parts) (cdr parts)) (car parts)))
-    (t (cons (concat-parts (cdr parents-parts) (car parts)) (car parents-parts)))))
+(defun get-all-parents-parts (parents parts)
 
+  (let ((class (class-spec (car parents))))
+    (format t "Classname: ~a~%Parents: ~a~%Parts: ~a~%~%" 
+            (getf class :classname) 
+            (getf class :parents)
+            (getf class :parts)))
+
+  (if parents
+      (let* ((parent (car parents))
+             (parent-fields (getf parent :parts)))
+        (append parent-fields (get-all-parents-parts (cdr parents) parts)))
+    parts))
 
 
 
@@ -143,10 +121,6 @@
             (setf f-type (car (cddr spec)))) 
       
       (push (field name value type) result))))
-
-
-;; method structure
-(defun is-method (method-name argslist form) T)
 
 
 
