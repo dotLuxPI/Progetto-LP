@@ -30,19 +30,20 @@
       (if (not (gethash classname *classes-specs*))    
           (if (or (listp parents) (null parents))
               (if (is-class-list parents)
-                  (let ((newParts (get-all-parents-parts parents parts)))
-                    (if (parts-check newParts)
+                 (if (parts-check parts)
+                     (let ((newParts (get-all-parents-parts parents parts)))
                         (progn
                           (add-class-spec classname (list 
                                                     :classname classname 
                                                     :parents parents 
                                                     :parts newParts))
-                          (class-spec classname)) 
-                        (error "parts must be a list of methods and fields")))
-                  (error "parents must be a list of existing classes")) 
-              (error "parents must be a list of classes")) 
-          (error "classname already exists")) 
-      (error "classname must be a symbol")))
+                          (class-spec classname))
+                      )
+                  (error "parts must be a list of methods and fields"))
+              (error "parents must be a list of existing classes")) 
+          (error "parents must be a list of classes")) 
+      (error "classname already exists")) 
+  (error "classname must be a symbol")))
 
 
 
@@ -53,20 +54,20 @@
 
 
 (defun get-all-parents-parts (parents parts)
-
-  (let ((class (class-spec (car parents))))
-    (format t "Classname: ~a~%Parents: ~a~%Parts: ~a~%~%" 
-            (getf class :classname) 
-            (getf class :parents)
-            (getf class :parts)))
-
+  
   (if parents
       (let* ((parent (car parents))
-             (parent-fields (getf parent :parts)))
-        (append parent-fields (get-all-parents-parts (cdr parents) parts)))
+             (parent-spec (class-spec parent))
+             (parent-fields (to-list (getf parent-spec :parts)))
+             (parts (to-list parts)))
+        (append (remove-duplicates (append (cdr parent-fields) (cdr parts)) :test #'equal :key #'car)
+        (get-all-parents-parts (cdr parents) parts) ))
     parts))
 
-
+(defun to-list (x)
+  (if (listp x)
+      x
+      (list x)))
 
 ;; parts-check
 (defun parts-check (parts)
