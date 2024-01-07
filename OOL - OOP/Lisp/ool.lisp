@@ -1,6 +1,6 @@
 ;;;; Perego Luca 894448
-;;;; Magliani Andrea
-;;;; Picco Nicolas
+;;;; Magliani Andrea 894395 (capo supremo)
+;;;; Picco Nicolas 894588
 
 ;; hash-table declaration & manipulation
 (defparameter *classes-specs* (make-hash-table))
@@ -36,17 +36,19 @@
                 (if (is-class-list parents)
                     ;; parts type-check
 
-                    (let(all-parents-parts (get-all-parents-parts parents))
-                       (if (parts-check parts)
+                    (let ((newParts (concat-parts (get-all-parents-parts parents) parts)))
+                      (print (get-all-parents-parts parents))
+                       (if (parts-check newParts)
                         ;; create class and adds it to the hash-table
                         (progn
                             (add-class-spec classname (list 
                                 :classname classname 
                                 :parents parents 
-                                :parts parts
+                                :parts newParts
                             ))
                             (class-spec classname)) 
                         (error "parts must be a list of methods and fields")
+                    
                     )
                     )
 
@@ -62,22 +64,35 @@
         (and (is-class (car parents)) (is-class-list (cdr parents)))))
 
 ;; get-all-parents-parts
-(defun get-all-parents-parts (classname)
-    (let ((class (class-spec classname)))
+(defun get-all-parents-parts (classname) 
+  (let ((class (class-spec classname)))
+    (print(if class t nil))
         (if class
             (let ((parents (getf class :parents)))
                 (if parents
                     (append (getf class :parts) 
                             (mapcan #'get-all-parents-parts parents))
                     (getf class :parts)))
-            (error "Class not found")
+           '()
         )
     )
 )
 
+;; concat parts
+(defun concat-parts (parents-parts parts)
+  (cond
+    ((null parents-parts) parts)
+    ((null parts) parents-parts)
+    ((cons (car parents-parts) (car parts))
+     (cons (concat-parts (cdr parents-parts) (cdr parts)) (car parts)))
+    (t (cons (concat-parts (cdr parents-parts) (car parts)) (car parents-parts)))))
+
+
+
+
 ;; parts-check
 (defun parts-check (parts)
-    (if (and (listp parts) (eql (car parts) 'fields))
+ (if (and (listp parts) (eql (car parts) 'fields))
         (let ((fields (cdr parts)))
           (if (is-valid-fields fields)
             T
@@ -140,3 +155,6 @@
   (if (symbolp classname)
       (if (gethash classname *classes-specs*) T NIL)
     (error "class-name must be a symbol")))
+
+
+
