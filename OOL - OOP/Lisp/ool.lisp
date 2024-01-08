@@ -125,13 +125,13 @@
                        (first part) (third part) (third class-part))))
          (compatibility-check part (rest parts-list)))))) ;; continue
 
-;; adds missing field from parents [if found]
+;; adds missing field parts and normalize field to 3-parameter-form
 (defun fill-in-field (part parents-fields) 
   (cond
    ((or (= 1 (length part))
         (and (= 2 (length part)) (eql nil (second part)))
         (and (= 3 (length part)) (eql nil (second part)) (eql t (third part))))
-    (print "caso 1"))
+    (fill-type-field (fill-value-field part parents-fields) parents-fields))
    
    ((or (= 2 (length part)) 
         (eql (third part) t)) 
@@ -139,31 +139,40 @@
    
    ((= 3 (length part)) part)))
                
-
+;; add missing type to field if available to inherit
 (defun fill-type-field (part parents-fields)
   (if (null parents-fields) ;; base
-      part
+      (list (first part) (second part) t) ;; normalize field length by adding type
     (let ((parent-part (first parents-fields)))
       (if (eql (first part) (first parent-part)) ;; if same field-name
-          (if (and (third parent-part) (not (eql (third parent-part) t))) ;; if parent has type
+          (if (and (third parent-part) (not (eql (third parent-part) t))) ;; if parent has field-type
               (if (or (typep (second part) (third parent-part)) ;; if type or subtype
                       (subtypep (type-of (second part)) (third parent-part)))
                   (if (= 2 (length part)) ;; add type to field
-                      (list* (first part) (second part) (third parent-part))
+                      (list (first part) (second part) (third parent-part))
                     part)
                 (if (= 2 (length part)) ;; normalize field length to 3
-                    (list* (first part) (second part) t)
+                    (list (first part) (second part) t)
                   part)))
         (fill-type-field part (rest parents-fields))))))
 
-(defun is-valid-fields (fields)
-    (if (null fields)
-        T
-        (and (is-valid-field-structure (car fields)) (is-valid-fields (cdr fields)))
-    )
-)
+;; add missing value to field if available to inherit
+(defun fill-value-field (part parents-fields)
+  (if (null parents-fields)
+      (list (first part) nil) ;; normalize field length by adding value
+    (let ((parent-part (first parents-fields)))
+      (if (eql (first part) (first parent-part)) ;; if same field-name
+          (list (first part) (second parent-part)) ;; normalize field length by adding value
+        (fill-value-field part (rest parents-fields)))))) ;; continue
 
-(defun fill-value-field (part parents-fields) t)
+
+
+(defun is-valid-fields (fields)
+  (if (null fields)
+      T
+    (and (is-valid-field-structure (car fields)) (is-valid-fields (cdr fields)))))
+
+
 
 ;; field structure
 (defun is-valid-field-structure (field)
