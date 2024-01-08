@@ -82,8 +82,13 @@
     )
 )
   
+
+;;;; FIXES
+;; field must: 
+;; - inherit values if declared as nil
+;; - inherit type if declared as t
+
 (defun field-type-check (parent-fields parts)
-  
   (cond
    ((null parent-fields) t) ;; parent-fields null -> T
    ((null parts) t) ;; parts null -> T
@@ -118,7 +123,6 @@
 
 
 
-
 (defun is-valid-fields (fields)
     (if (null fields)
         T
@@ -128,10 +132,12 @@
 
 ;; field structure
 (defun is-valid-field-structure (field)
-  (if (= 3 (length field))
+  (if (= 3 (length field)) ;; (name value type)
       (is-field (first field) (second field) (third field))
-    (if (= 2 (length field))
-        (is-field (first field) (second field) T) NIL)))
+    (if (= 2 (length field)) ;; (name value)
+        (is-field (first field) (second field) T) 
+      (if (= 1 (length field)) ;; (name)
+          (is-field (first field) nil T) nil))))
 
 (defun is-field (field-name field-value &optional (field-type T))
   (if (symbolp field-name)
@@ -165,6 +171,3 @@
   (if (symbolp classname)
       (if (gethash classname *classes-specs*) T NIL)
     (error "class-name must be a symbol")))
-
-
-
