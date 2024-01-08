@@ -81,29 +81,43 @@
         (error "parts must be a list of methods and fields")
     )
 )
-;; (defun field-type-check (parent-fields parts) t
-;; (field-type-check '((name "eve" string)) '((name 12))) error
-;; (field-type-check '((name "Eve" string) (age 21))  '((age "12" string))) error
-;; se parents-type true e class any restituisce true
-;; se parents any e class true controllo tipi(class controlla tipo parents e lo assegna)
-;; (field-type-check '((name "eve" string)) '((name "eve"))) true assegnando string a (name "eve")
   
 (defun field-type-check (parent-fields parts)
-  (cond ((null parts) t)
-        ((null parent-fields) t)
-        ((or(not(third (first parent-fields)))
-            (equal t (third (first parent-fields)))) t) ;;parents true/true implicito
-        ((or(not (third (first parts))) (equal t (third (first parts)))) 
-         (valid-field-value (first parent-fields) (first parts)))
-;;serve per gestire casi di confronto
-        ((equal (first (first parts)) (first (first parent-fields)))
-         (if (and (third (first parts)) (third (first parent-fields))
-                  (not (equal (third (first parts)) (third (first parent-fields)))))
-             (error "Type mismatch for field ~A: ~A vs ~A"
-                    (first (first parts)) (third (first parts)) (third (first parent-fields)))
-             (field-type-check (rest parent-fields) (rest parts))))
-        (t (field-type-check (rest parent-fields) parts))))
   
+  (cond
+   ((null parent-fields) t) ;; parent-fields null -> T
+   ((null parts) t) ;; parts null -> T
+   (t ;; else
+      (let ((parent-part (first parent-fields)))
+        
+        (if (or (null (third parent-part)) ;; if parent-part true/nil
+                (eql (third parent-part) t)) 
+            (field-type-check (rest parent-fields) parts) ;;skip check -> continue
+          (if (compatibility-check parent-part parts)
+              (field-type-check (rest parent-fields) parts)
+            (error "Type mismatch for field ~A: ~A vs ~A"
+                    (first (parent-part)) (third (first parts)) (third parent-part))))))))
+
+(defun compatibility-check (part parts-list) ;; part is !nil and !t
+  (if (null parts-list) ;; base
+      t ;; return true
+    (let ((class-part (first parts-list))) ;; else
+       
+       (if (eql (first part) (first class-part)) ;; same name -> type check
+           (if (or (null (third class-part)) ;; if class-part true/nil
+                   (eql (third class-part) t))
+               (if (typep (second class-part) (third part)) ;; check value type
+                   t 
+                 (error "Type mismatch for field ~A. ~%Expected: ~A [or valid subtype]~%Found: ~A~%"
+                        (first part) (third part) (type-of (second class-part))))
+             (if (eql (third part) (third class-part))
+                  t
+                (error "Type mismatch for field ~A: ~A vs ~A"
+                       (first part) (third part) (third class-part))))
+         (compatibility-check part (rest parts-list)))))) ;; continue
+
+
+
 
 (defun is-valid-fields (fields)
     (if (null fields)
@@ -111,12 +125,6 @@
         (and (is-valid-field-structure (car fields)) (is-valid-fields (cdr fields)))
     )
 )
-
-(defun valid-field-value (parent part)
-  (if(typep (second part) (third parent))
-      t 
-    (error "Type mismatch for field ~A: ~A vs ~A"
-     (first part) (third parts) (third parent-fields))))
 
 ;; field structure
 (defun is-valid-field-structure (field)
