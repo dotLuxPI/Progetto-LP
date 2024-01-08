@@ -31,13 +31,12 @@
           (if (or (listp parents) (null parents))
               (if (is-class-list parents)
                   (if (parts-check parts)
-                      (let ((newParts (get-all-parents-parts parents parts)))
-                        (format t "output remove-duplicates: ~a~%~%" newParts)
+                        (let ((finalParts (parts-validation (cdr parts) (get-all-parents-parts parents)))) 
                         (progn
                           (add-class-spec classname (list 
                                                      :classname classname 
                                                      :parents parents 
-                                                     :parts newParts))
+                                                     :parts (cons 'FIELDS finalParts)))
                           (class-spec classname)))
                     (error "parts must be a list of methods and fields"))
                 (error "parents must be a list of existing classes")) 
@@ -52,19 +51,20 @@
       t
     (and (is-class (car parents)) (is-class-list (cdr parents)))))
 
-
-(defun get-all-parents-parts (parents parts)
-
+(defun get-all-parents-parts (parents)
   (if parents
       (let* ((parent (car parents))
              (parent-spec (class-spec parent))
-             (parent-fields (to-list (getf parent-spec :parts)))
-             (parts (to-list parts)))
-        (field_type_check parent-fields parts)
-        (let ((new-parts (append (remove-duplicates (append (cdr parent-fields) (cdr parts))
+             (parent-fields (to-list (getf parent-spec :parts))))
+        (let ((new-parts (append (remove-duplicates (cdr parent-fields)
                                                     :test #'equal :key #'car))))
-          (get-all-parents-parts (cdr parents) new-parts)))
-    parts))
+          (get-all-parents-parts (cdr parents))))
+    nil))
+
+(defun parts-validation (parts parents-parts)
+  (if (null parts)
+      '()
+      (cons (fill-in-field (car parts) parents-parts) (parts-validation (rest parts) parents-parts))))
 
 (defun to-list (x)
   (if (listp x) x (list x)))
@@ -81,16 +81,6 @@
         (error "parts must be a list of methods and fields")
     )
 )
-  
-
-;;;; FIXES
-;; field must: 
-;; - inherit values if declared as nil
-;; - inherit type if declared as t
-
-;;;; COMPORTAMENTI EREDITARIETA
-;; i campi della classe hanno la priorità
-;; se un campo della classe è vuoto viene riempito da quello del parent
 
 (defun field-type-check (parent-fields parts)
   (cond
@@ -109,18 +99,18 @@
 
 (defun compatibility-check (part parts-list) ;; part is !nil and !t
   (if (null parts-list) ;; base
-      t ;; return true
+      part ;; return true
     (let ((class-part (first parts-list))) ;; else
        
        (if (eql (first part) (first class-part)) ;; same name -> type check
            (if (or (null (third class-part)) ;; if class-part true/nil
                    (eql (third class-part) t))
                (if (typep (second class-part) (third part)) ;; check value type
-                   t 
+                   part 
                  (error "Type mismatch for field ~A. ~%Expected: ~A [or valid subtype]~%Found: ~A~%"
                         (first part) (third part) (type-of (second class-part))))
              (if (eql (third part) (third class-part))
-                  t
+                  part
                 (error "Type mismatch for field ~A: ~A vs ~A"
                        (first part) (third part) (third class-part))))
          (compatibility-check part (rest parts-list)))))) ;; continue
@@ -131,13 +121,13 @@
    ((or (= 1 (length part))
         (and (= 2 (length part)) (eql nil (second part)))
         (and (= 3 (length part)) (eql nil (second part)) (eql t (third part))))
-    (fill-type-field (fill-value-field part parents-fields) parents-fields))
+    (compatibility-check (fill-type-field (fill-value-field part parents-fields) parents-fields) parents-fields))
    
    ((or (= 2 (length part)) 
         (eql (third part) t)) 
-    (fill-type-field part parents-fields))
+    (compatibility-check (fill-type-field part parents-fields) parents-fields))
    
-   ((= 3 (length part)) part)))
+   ((= 3 (length part)) (compatibility-check part parents-fields))))
                
 ;; add missing type to field if available to inherit
 (defun fill-type-field (part parents-fields)
