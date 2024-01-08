@@ -88,6 +88,10 @@
 ;; - inherit values if declared as nil
 ;; - inherit type if declared as t
 
+;;;; COMPORTAMENTI EREDITARIETA
+;; i campi della classe hanno la priorità
+;; se un campo della classe è vuoto viene riempito da quello del parent
+
 (defun field-type-check (parent-fields parts)
   (cond
    ((null parent-fields) t) ;; parent-fields null -> T
@@ -121,7 +125,36 @@
                        (first part) (third part) (third class-part))))
          (compatibility-check part (rest parts-list)))))) ;; continue
 
+;; adds missing field from parents [if found]
+(defun fill-in-field (part parents-fields) 
+  (cond
+   ((or (= 1 (length part))
+        (and (= 2 (length part)) (eql nil (second part)))
+        (and (= 3 (length part)) (eql nil (second part)) (eql t (third part))))
+    (print "caso 1"))
+   
+   ((or (= 2 (length part)) 
+        (eql (third part) t)) 
+    (fill-type-field part parents-fields))
+   
+   ((= 3 (length part)) part)))
+               
 
+(defun fill-type-field (part parents-fields)
+  (if (null parents-fields) ;; base
+      part
+    (let ((parent-part (first parents-fields)))
+      (if (eql (first part) (first parent-part)) ;; if same field-name
+          (if (and (third parent-part) (not (eql (third parent-part) t))) ;; if parent has type
+              (if (or (typep (second part) (third parent-part)) ;; if type or subtype
+                      (subtypep (type-of (second part)) (third parent-part)))
+                  (if (= 2 (length part)) ;; add type to field
+                      (list* (first part) (second part) (third parent-part))
+                    part)
+                (if (= 2 (length part)) ;; normalize field length to 3
+                    (list* (first part) (second part) t)
+                  part)))
+        (fill-type-field part (rest parents-fields))))))
 
 (defun is-valid-fields (fields)
     (if (null fields)
@@ -129,6 +162,8 @@
         (and (is-valid-field-structure (car fields)) (is-valid-fields (cdr fields)))
     )
 )
+
+(defun fill-value-field (part parents-fields) t)
 
 ;; field structure
 (defun is-valid-field-structure (field)
