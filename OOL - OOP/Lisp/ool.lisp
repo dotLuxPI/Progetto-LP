@@ -60,7 +60,9 @@
              (parent-spec (class-spec parent))
              (parent-fields (to-list (getf parent-spec :parts)))
              (parts (to-list parts)))
-        (let ((new-parts (append (remove-duplicates (append (cdr parent-fields) (cdr parts)) :test #'equal :key #'car))))
+        (field_type_check parent-fields parts)
+        (let ((new-parts (append (remove-duplicates (append (cdr parent-fields) (cdr parts))
+                                                    :test #'equal :key #'car))))
           (get-all-parents-parts (cdr parents) new-parts)))
     parts))
 
@@ -79,6 +81,29 @@
         (error "parts must be a list of methods and fields")
     )
 )
+;; (defun field-type-check (parent-fields parts) t
+;; (field-type-check '((name "eve" string)) '((name 12))) error
+;; (field-type-check '((name "Eve" string) (age 21))  '((age "12" string))) error
+;; se parents-type true e class any restituisce true
+;; se parents any e class true controllo tipi(class controlla tipo parents e lo assegna)
+;; (field-type-check '((name "eve" string)) '((name "eve"))) true assegnando string a (name "eve")
+  
+(defun field-type-check (parent-fields parts)
+  (cond ((null parts) t)
+        ((null parent-fields) t)
+        ((or(not(third (first parent-fields)))
+            (equal t (third (first parent-fields)))) t) ;;parents true/true implicito
+        ((or(not (third (first parts))) (equal t (third (first parts)))) 
+         (valid-field-value (first parent-fields) (first parts)))
+;;serve per gestire casi di confronto
+        ((equal (first (first parts)) (first (first parent-fields)))
+         (if (and (third (first parts)) (third (first parent-fields))
+                  (not (equal (third (first parts)) (third (first parent-fields)))))
+             (error "Type mismatch for field ~A: ~A vs ~A"
+                    (first (first parts)) (third (first parts)) (third (first parent-fields)))
+             (field-type-check (rest parent-fields) (rest parts))))
+        (t (field-type-check (rest parent-fields) parts))))
+  
 
 (defun is-valid-fields (fields)
     (if (null fields)
@@ -87,7 +112,11 @@
     )
 )
 
-
+(defun valid-field-value (parent part)
+  (if(typep (second part) (third parent))
+      t 
+    (error "Type mismatch for field ~A: ~A vs ~A"
+     (first part) (third parts) (third parent-fields))))
 
 ;; field structure
 (defun is-valid-field-structure (field)
