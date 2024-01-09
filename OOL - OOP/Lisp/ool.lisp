@@ -155,7 +155,7 @@
              (parent-spec (class-spec parent))
              (parent-fields (to-list (getf parent-spec :parts)))
              (parts (to-list parts)))
-        (if (parts-validation (cdr parts) (cdr parent-fields))
+        (if (parts-validation parts (cdr parent-fields))
             (let ((new-parts (append (remove-duplicates (append (cdr parent-fields) (cdr parts))
                                                         :test #'equal :key #'car))))
               (get-all-parents-parts (cdr parents) new-parts))
@@ -203,12 +203,11 @@
 
 
 ;; MAKE
-(defun make (class-name &optional (fields nil))
+(defun make (class-name &rest fields)
   (if (is-class class-name)
       (if (null fields)
           (make-default-instance class-name) ;; return instance with default values
-        () ;; return instance with custom values
-       )
+        (make-custom-instance class-name fields)) ;; return instance with custom values
     (error "~A is not a valid class-name" class-name)))
 
 ;; MAKE UTILS
@@ -218,6 +217,36 @@
            (end (position 'METHOD class-parts :test #'eq))
            (fields (subseq class-parts (1+ start) end)))
       (list :class class-name :fields fields))))
+
+(defun make-custom-instance (class-name fields &optional (result nil))
+  
+  (if (null fields)
+      (list :class class-name :fields result)
+    (let* ((class-parts (getf (class-spec class-name) :PARTS))
+           (start (position 'FIELDS class-parts :test #'eq))
+           (end (position 'METHOD class-parts :test #'eq))
+           (class-fields (subseq class-parts (1+ start) end))
+           (name (first fields))
+           (value (second fields)))
+      (if (is-valid-instance-value class-fields name value)
+          (make-custom-instance class-name (cddr fields) (append result (list name value)))
+        (error "generic invalid-instance error")))))
+
+(defun is-valid-instance-value (class-fields name value)
+  (if (null class-fields)
+      (error "Unknown field: (~A ~A)" name value)
+    (let* ((name-class (first (first class-fields)))
+           (value-class (second (first class-fields)))
+           (type-class (third (first class-fields))))
+      (if (eql name name-class) ;; field found
+          (if (null value)
+              (if (eql type-class T)
+                  t (error "Cannot assign NIL to type ~A" type-class))
+            (if (typep value type-class)
+                t (error "Cannot assign ~A to type ~A" (type-of value) type-class))) ;; value not null
+        (is-valid-instance-value (rest class-fields) name value))))) ;; continue
+
+
 
 (defun field (instance field-name)
   (if(is-instance instance)
