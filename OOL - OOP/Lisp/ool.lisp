@@ -25,9 +25,18 @@
       (list (gethash classname *classes-specs*))
     (error "classname must be a symbol")))
 
+(defun is-class (classname)
+  (if (symbolp classname)
+      (if (gethash classname *classes-specs*) T NIL)
+    (error "class-name must be a symbol")))
+
+
+
 ;;;; MEMO!!!!
 ;; def-class deve restituire il class-name in caso di successo
 ;; attualmente restituisce l'intera classe
+
+;; CLASS CREATION
 (defun def-class (classname &optional (parents '()) parts)
   (if (symbolp classname) 
       (if (not (gethash classname *classes-specs*))    
@@ -49,14 +58,26 @@
         (error "classname already exists")) 
     (error "classname must be a symbol")))
 
-
-
 (defun is-class-list (parents)
   (if (null parents)
       t
     (and (is-class (car parents)) (is-class-list (cdr parents)))))
 
+(defun to-list (x)
+  (if (listp x) x (list x)))
 
+;; parts-check
+(defun parts-check (parts)
+  (if (and (listp parts) (eql (car parts) 'fields))
+      (let ((fields (cdr parts)))
+        (if (is-valid-fields fields)
+            T
+          (error "parts must be a list of methods and fields")))
+    (error "parts must be a list of methods and fields")))
+
+
+
+;; FIELD MANAGEMENT
 (defun concat-fields (parts parents-parts)
   (if (null parts)
       parents-parts
@@ -67,74 +88,10 @@
                                     (remove (assoc (car part) parents-parts :test #'equal) parents-parts)))
         (cons part (concat-fields rest-parts parents-parts))))))
 
-(defun get-all-parents-parts (parents parts)
-  (if parents
-      (let* ((parent (car parents))
-             (parent-spec (class-spec parent))
-             (parent-fields (to-list (getf parent-spec :parts)))
-             (parts (to-list parts)))
-        (if (parts-validation (cdr parts) (cdr parent-fields))
-            (let ((new-parts (append (remove-duplicates (append (cdr parent-fields) (cdr parts))
-                                                        :test #'equal :key #'car))))
-              (get-all-parents-parts (cdr parents) new-parts))
-          (error "generic error")))
-    parts))
-
-
-
 (defun parts-validation (parts parents-parts)
   (if (null parts)
       '()
       (cons (fill-in-field (car parts) parents-parts) (parts-validation (rest parts) parents-parts))))
-
-(defun to-list (x)
-  (if (listp x) x (list x)))
-
-;; parts-check
-(defun parts-check (parts)
- (if (and (listp parts) (eql (car parts) 'fields))
-        (let ((fields (cdr parts)))
-          (if (is-valid-fields fields)
-            T
-            (error "parts must be a list of methods and fields")
-          )
-        )
-        (error "parts must be a list of methods and fields")
-    )
-)
-
-(defun field-type-check (parent-fields parts)
-  (cond
-   ((null parent-fields) t) ;; parent-fields null -> T
-   ((null parts) t) ;; parts null -> T
-   (t ;; else
-      (let ((parent-part (first parent-fields)))
-        
-        (if (or (null (third parent-part)) ;; if parent-part true/nil
-                (eql (third parent-part) t)) 
-            (field-type-check (rest parent-fields) parts) ;;skip check -> continue
-          (if (compatibility-check parent-part parts)
-              (field-type-check (rest parent-fields) parts)
-            (error "Type mismatch for field ~A: ~A vs ~A"
-                    (first (parent-part)) (third (first parts)) (third parent-part))))))))
-
-(defun compatibility-check (part parts-list) ;; part is !nil and !t
-  (if (null parts-list) ;; base
-      part ;; return true
-    (let ((class-part (first parts-list))) ;; else
-       
-       (if (eql (first part) (first class-part)) ;; same name -> type check
-           (if (or (null (third class-part)) ;; if class-part true/nil
-                   (eql (third class-part) t))
-               (if (typep (second class-part) (third part)) ;; check value type
-                   part 
-                 (error "Type mismatch for field ~A. ~%Expected: ~A [or valid subtype]~%Found: ~A~%"
-                        (first part) (third part) (type-of (second class-part))))
-             (if (eql (third part) (third class-part))
-                  part
-                (error "Type mismatch for field ~A: ~A vs ~A"
-                       (first part) (third part) (third class-part))))
-         (compatibility-check part (rest parts-list)))))) ;; continue
 
 ;; adds missing field parts and normalize field to 3-parameter-form
 (defun fill-in-field (part parents-fields) 
@@ -149,7 +106,16 @@
     (compatibility-check (fill-type-field part parents-fields) parents-fields))
    
    ((= 3 (length part)) (compatibility-check part parents-fields))))
-               
+
+;; add missing value to field if available to inherit
+(defun fill-value-field (part parents-fields)
+  (if (null parents-fields)
+      (list (first part) nil) ;; normalize field length by adding value
+    (let ((parent-part (first parents-fields)))
+      (if (eql (first part) (first parent-part)) ;; if same field-name
+          (list (first part) (second parent-part)) ;; normalize field length by adding value
+        (fill-value-field part (rest parents-fields)))))) ;; continue
+
 ;; add missing type to field if available to inherit
 (defun fill-type-field (part parents-fields)
   (if (null parents-fields) ;; base
@@ -170,24 +136,44 @@
               part))
         (fill-type-field part (rest parents-fields))))))
 
+;; check compatibility between part type and inherited parts type
+(defun compatibility-check (part parts-list) ;; part is !nil and !t
+  (if (null parts-list) ;; base
+      part ;; return true
+    (let ((class-part (first parts-list))) ;; else
+       
+       (if (eql (first part) (first class-part)) ;; same name -> type check
+           (if (or (null (third class-part)) ;; if class-part true/nil
+                   (eql (third class-part) t))
+               (if (typep (second class-part) (third part)) ;; check value type
+                   part 
+                 (error "Type mismatch for field ~A. ~%Expected: ~A [or valid subtype]~%Found: ~A~%"
+                        (first part) (third part) (type-of (second class-part))))
+             (if (eql (third part) (third class-part))
+                  part
+                (error "Type mismatch for field ~A: ~A vs ~A"
+                       (first part) (third part) (third class-part))))
+         (compatibility-check part (rest parts-list)))))) ;; continue
 
-;; add missing value to field if available to inherit
-(defun fill-value-field (part parents-fields)
-  (if (null parents-fields)
-      (list (first part) nil) ;; normalize field length by adding value
-    (let ((parent-part (first parents-fields)))
-      (if (eql (first part) (first parent-part)) ;; if same field-name
-          (list (first part) (second parent-part)) ;; normalize field length by adding value
-        (fill-value-field part (rest parents-fields)))))) ;; continue
+(defun get-all-parents-parts (parents parts)
+  (if parents
+      (let* ((parent (car parents))
+             (parent-spec (class-spec parent))
+             (parent-fields (to-list (getf parent-spec :parts)))
+             (parts (to-list parts)))
+        (if (parts-validation (cdr parts) (cdr parent-fields))
+            (let ((new-parts (append (remove-duplicates (append (cdr parent-fields) (cdr parts))
+                                                        :test #'equal :key #'car))))
+              (get-all-parents-parts (cdr parents) new-parts))
+          (error "generic error")))
+    parts))
 
 
 
+;; FIELD CREATION
 (defun is-valid-fields (fields)
   (if (null fields)
-      T
-    (and (is-valid-field-structure (car fields)) (is-valid-fields (cdr fields)))))
-
-
+      T (and (is-valid-field-structure (car fields)) (is-valid-fields (cdr fields)))))
 
 ;; field structure
 (defun is-valid-field-structure (field)
@@ -208,8 +194,6 @@
         (error "field-type must be a symbol"))
     (error "field-name must be a symbol")))
 
-
-
 (defun fields (&rest field-specs)
   (if (null (car field-specs))
       '()
@@ -223,10 +207,15 @@
       
       (push (field name value type) result))))
 
+;; MAKE
+(defun make (class-name &optional (fields nil))
+  (if (is-class class-name)
+      (if (null fields)
+          (make-default-instance class-name) ;; return instance with default values
+        () ;; return instance with custom values
+       )
+    (error "~A is not a valid class-name" class-name)))
+
+(defun make-default-instance)
 
 
-;; class control
-(defun is-class (classname)
-  (if (symbolp classname)
-      (if (gethash classname *classes-specs*) T NIL)
-    (error "class-name must be a symbol")))
