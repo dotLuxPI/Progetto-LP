@@ -51,6 +51,7 @@
                                                      :classname classname 
                                                      :parents parents 
                                                      :parts (cons 'FIELDS finalParts)))
+                          (print classname)
                           (class-spec classname)))
                     (error "parts must be a list of methods and fields"))
                 (error "parents must be a list of existing classes")) 
@@ -216,6 +217,18 @@
        )
     (error "~A is not a valid class-name" class-name)))
 
-(defun make-default-instance)
+(defun field (instance field-name)
+  (if(is-instance instance)
+   ()
+    (error "~A is not a valid instance" instance)))
+     
 
-
+(defun is-instance (value &optional(class-name T))
+  (if (equal class-name t)
+    ()  ;;checking if value is a valid instance
+    (if(is-class class-name)
+      () ;;checking
+      (error "~A is not a valid class" class-name)
+        )  ;;checking if value is a valid instance of class 
+      )
+)
