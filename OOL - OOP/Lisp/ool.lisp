@@ -25,10 +25,7 @@
       (list (gethash classname *classes-specs*))
     (error "classname must be a symbol")))
 
-(defun is-class (classname)
-  (if (symbolp classname)
-      (if (gethash classname *classes-specs*) T NIL)
-    (error "class-name must be a symbol")))
+
 
 
 
@@ -36,7 +33,7 @@
 ;; def-class deve restituire il class-name in caso di successo
 ;; attualmente restituisce l'intera classe
 
-;; CLASS CREATION
+;; DEF_CLASS
 (defun def-class (classname &optional (parents '()) parts)
   (if (symbolp classname) 
       (if (not (gethash classname *classes-specs*))    
@@ -44,14 +41,11 @@
               (if (is-class-list parents)
                   (if (parts-check parts)
                       (let ((finalParts (concat-fields (parts-validation (cdr parts) (get-all-parents-parts parents (cdr parts))) (get-all-parents-parts parents (cdr parts)))))
-                        (format t "final-parts: ~A~%class: ~A~%parents: ~A~%~%"
-                                finalParts parts (get-all-parents-parts parents (cdr parts)))
                         (progn
                           (add-class-spec classname (list 
                                                      :classname classname 
                                                      :parents parents 
                                                      :parts (cons 'FIELDS finalParts)))
-                          (print classname)
                           (class-spec classname)))
                     (error "parts must be a list of methods and fields"))
                 (error "parents must be a list of existing classes")) 
@@ -59,6 +53,7 @@
         (error "classname already exists")) 
     (error "classname must be a symbol")))
 
+;; DEF_CLASS UTILS 
 (defun is-class-list (parents)
   (if (null parents)
       t
@@ -75,8 +70,6 @@
             T
           (error "parts must be a list of methods and fields")))
     (error "parts must be a list of methods and fields")))
-
-
 
 ;; FIELD MANAGEMENT
 (defun concat-fields (parts parents-parts)
@@ -169,9 +162,7 @@
           (error "generic error")))
     parts))
 
-
-
-;; FIELD CREATION
+;; field structure check
 (defun is-valid-fields (fields)
   (if (null fields)
       T (and (is-valid-field-structure (car fields)) (is-valid-fields (cdr fields)))))
@@ -208,6 +199,9 @@
       
       (push (field name value type) result))))
 
+
+
+
 ;; MAKE
 (defun make (class-name &optional (fields nil))
   (if (is-class class-name)
@@ -217,18 +211,50 @@
        )
     (error "~A is not a valid class-name" class-name)))
 
+;; MAKE UTILS
+(defun make-default-instance (class-name)
+  (let ((class-parts (getf (class-spec class-name) :PARTS)))
+    (let* ((start (position 'FIELDS class-parts :test #'eq))
+           (end (position 'METHOD class-parts :test #'eq))
+           (fields (subseq class-parts (1+ start) end)))
+      (list :class class-name :fields fields))))
+
 (defun field (instance field-name)
   (if(is-instance instance)
    ()
     (error "~A is not a valid instance" instance)))
      
 
+
+;; IS_CLASS
+(defun is-class (classname)
+  (if (symbolp classname)
+      (if (gethash classname *classes-specs*) T NIL)
+    (error "class-name must be a symbol")))
+
+
+
+;; IS_INSTANCE
 (defun is-instance (value &optional(class-name T))
-  (if (equal class-name t)
-    ()  ;;checking if value is a valid instance
-    (if(is-class class-name)
-      () ;;checking
-      (error "~A is not a valid class" class-name)
-        )  ;;checking if value is a valid instance of class 
-      )
-)
+  (if (equal class-name T)
+    (if (and (listp value) (not (eql (getf value :class) NIL)))
+        T
+        NIL)  ;;checking if value is a valid instance
+  (if(is-class class-name)
+      (if (and (listp value) (is-subclass-of (getf value :class) class-name))
+          T
+          NIL) ;;checking if value is a valid instance of class            
+  (error "~A is not a valid class" class-name))))
+
+;; IS_INSTANCE UTILS
+(defun is-subclass-of (subclass superclass)
+  (if (eql subclass superclass)
+      T
+    (if (eql (getf subclass :parents) NIL)
+        NIL
+      (check-parents (getf subclass :parents) superclass))))
+
+(defun check-parents (parents superclass)
+  (if (null parents)
+      NIL
+    (or (is-subclass-of (car parents) superclass) (check-parents (cdr parents) superclass))))
