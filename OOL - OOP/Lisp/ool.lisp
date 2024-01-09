@@ -34,13 +34,15 @@
           (if (or (listp parents) (null parents))
               (if (is-class-list parents)
                   (if (parts-check parts)
-                        (let ((finalParts (parts-validation (cdr parts) (get-all-parents-parts parents)))) 
-                          (progn
-                            (add-class-spec classname (list 
-                                                       :classname classname 
-                                                       :parents parents 
-                                                       :parts (cons 'FIELDS finalParts)))
-                            (class-spec classname)))
+                      (let ((finalParts (concat-fields (parts-validation (cdr parts) (get-all-parents-parts parents (cdr parts))) (get-all-parents-parts parents (cdr parts)))))
+                        (format t "final-parts: ~A~%class: ~A~%parents: ~A~%~%"
+                                finalParts parts (get-all-parents-parts parents (cdr parts)))
+                        (progn
+                          (add-class-spec classname (list 
+                                                     :classname classname 
+                                                     :parents parents 
+                                                     :parts (cons 'FIELDS finalParts)))
+                          (class-spec classname)))
                     (error "parts must be a list of methods and fields"))
                 (error "parents must be a list of existing classes")) 
             (error "parents must be a list of classes")) 
@@ -54,15 +56,30 @@
       t
     (and (is-class (car parents)) (is-class-list (cdr parents)))))
 
-(defun get-all-parents-parts (parents)
+
+(defun concat-fields (parts parents-parts)
+  (if (null parts)
+      parents-parts
+    (let ((part (car parts))
+          (rest-parts (cdr parts)))
+      (if (assoc (car part) parents-parts :test #'equal)
+          (cons part (concat-fields rest-parts 
+                                    (remove (assoc (car part) parents-parts :test #'equal) parents-parts)))
+        (cons part (concat-fields rest-parts parents-parts))))))
+
+(defun get-all-parents-parts (parents parts)
   (if parents
       (let* ((parent (car parents))
              (parent-spec (class-spec parent))
              (parent-fields (to-list (getf parent-spec :parts)))
-             (new-parts (append (remove-duplicates (cdr parent-fields)
-                                                   :test #'equal :key #'car))))
-        (car (cons new-parts (get-all-parents-parts (cdr parents)))))
-    nil))
+             (parts (to-list parts)))
+        (if (parts-validation (cdr parts) (cdr parent-fields))
+            (let ((new-parts (append (remove-duplicates (append (cdr parent-fields) (cdr parts))
+                                                        :test #'equal :key #'car))))
+              (get-all-parents-parts (cdr parents) new-parts))
+          (error "generic error")))
+    parts))
+
 
 
 (defun parts-validation (parts parents-parts)
