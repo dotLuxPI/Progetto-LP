@@ -25,6 +25,9 @@
       (list (gethash classname *classes-specs*))
     (error "classname must be a symbol")))
 
+;;;; MEMO!!!!
+;; def-class deve restituire il class-name in caso di successo
+;; attualmente restituisce l'intera classe
 (defun def-class (classname &optional (parents '()) parts)
   (if (symbolp classname) 
       (if (not (gethash classname *classes-specs*))    
@@ -32,12 +35,12 @@
               (if (is-class-list parents)
                   (if (parts-check parts)
                         (let ((finalParts (parts-validation (cdr parts) (get-all-parents-parts parents)))) 
-                        (progn
-                          (add-class-spec classname (list 
-                                                     :classname classname 
-                                                     :parents parents 
-                                                     :parts (cons 'FIELDS finalParts)))
-                          (class-spec classname)))
+                          (progn
+                            (add-class-spec classname (list 
+                                                       :classname classname 
+                                                       :parents parents 
+                                                       :parts (cons 'FIELDS finalParts)))
+                            (class-spec classname)))
                     (error "parts must be a list of methods and fields"))
                 (error "parents must be a list of existing classes")) 
             (error "parents must be a list of classes")) 
@@ -55,11 +58,12 @@
   (if parents
       (let* ((parent (car parents))
              (parent-spec (class-spec parent))
-             (parent-fields (to-list (getf parent-spec :parts))))
-        (let ((new-parts (append (remove-duplicates (cdr parent-fields)
-                                                    :test #'equal :key #'car))))
-          (get-all-parents-parts (cdr parents))))
+             (parent-fields (to-list (getf parent-spec :parts)))
+             (new-parts (append (remove-duplicates (cdr parent-fields)
+                                                   :test #'equal :key #'car))))
+        (car (cons new-parts (get-all-parents-parts (cdr parents)))))
     nil))
+
 
 (defun parts-validation (parts parents-parts)
   (if (null parts)
@@ -135,7 +139,7 @@
       (list (first part) (second part) t) ;; normalize field length by adding type
     (let ((parent-part (first parents-fields)))
       (if (eql (first part) (first parent-part)) ;; if same field-name
-          (if (and (third parent-part) (not (eql (third parent-part) t))) ;; if parent has field-type
+          (if (third parent-part) ;; if parent has field-type
               (if (or (typep (second part) (third parent-part)) ;; if type or subtype
                       (subtypep (type-of (second part)) (third parent-part)))
                   (if (= 2 (length part)) ;; add type to field
@@ -143,8 +147,12 @@
                     part)
                 (if (= 2 (length part)) ;; normalize field length to 3
                     (list (first part) (second part) t)
-                  part)))
+                  part))
+            (if (= 2 (length part)) ;; normalize field length to 3
+                (list (first part) (second part) t)
+              part))
         (fill-type-field part (rest parents-fields))))))
+
 
 ;; add missing value to field if available to inherit
 (defun fill-value-field (part parents-fields)
