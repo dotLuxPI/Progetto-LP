@@ -27,8 +27,6 @@
 
 
 
-
-
 ;;;; MEMO!!!!
 ;; def-class deve restituire il class-name in caso di successo
 ;; attualmente restituisce l'intera classe
@@ -193,10 +191,9 @@
       (let* (name (first spec))
         (value (second spec))
         (f-type (T)))
-
-      (cond (not(null (cddr spec)))
-            (setf f-type (car (cddr spec)))) 
       
+      (cond (not(null (cddr spec)))
+            (setf f-type (car (cddr spec))))       
       (push (field name value type) result))))
 
 
@@ -216,21 +213,21 @@
     (let* ((start (position 'FIELDS class-parts :test #'eq))
            (end (position 'METHOD class-parts :test #'eq))
            (fields (subseq class-parts (1+ start) end)))
-      (list :class class-name :fields fields))))
+      (list :class class-name :fields (inherit-fields '() fields)))))
 
 (defun make-custom-instance (class-name fields &optional (result nil))
-  
-  (if (null fields)
-      (list :class class-name :fields result)
-    (let* ((class-parts (getf (class-spec class-name) :PARTS))
-           (start (position 'FIELDS class-parts :test #'eq))
-           (end (position 'METHOD class-parts :test #'eq))
-           (class-fields (subseq class-parts (1+ start) end))
-           (name (first fields))
-           (value (second fields)))
-      (if (is-valid-instance-value class-fields name value)
-          (make-custom-instance class-name (cddr fields) (append result (list name value)))
-        (error "generic invalid-instance error")))))
+  (let* ((class-parts (getf (class-spec class-name) :PARTS)) ;; defines class-fields
+         (start (position 'FIELDS class-parts :test #'eq))
+         (end (position 'METHOD class-parts :test #'eq))
+         (class-fields (subseq class-parts (1+ start) end)))
+
+    (if (null fields)
+        (list :class class-name :fields (inherit-fields result class-fields))
+      (let* ((name (first fields))
+             (value (second fields)))
+        (if (is-valid-instance-value class-fields name value)
+            (make-custom-instance class-name (cddr fields) (append result (list name value)))
+          (error "generic invalid-instance error"))))))
 
 (defun is-valid-instance-value (class-fields name value)
   (if (null class-fields)
@@ -245,6 +242,23 @@
             (if (typep value type-class)
                 t (error "Cannot assign ~A to type ~A" (type-of value) type-class))) ;; value not null
         (is-valid-instance-value (rest class-fields) name value))))) ;; continue
+
+
+(defun inherit-fields (fields default-fields)
+  (if (null default-fields)
+      fields
+    (let* ((field-name (first (first default-fields)))
+           (field-value (second (first default-fields))))
+      (if (is-name-present fields field-name)
+          (inherit-fields fields (rest default-fields))
+        (inherit-fields (append fields (list field-name field-value)) (rest default-fields))))))
+
+(defun is-name-present (fields field-name)
+  (if (null fields)
+      NIL
+    (if (eql (first fields) field-name)
+        T 
+      (is-name-present (cddr fields) field-name))))
 
 
 

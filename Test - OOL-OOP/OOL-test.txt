@@ -1,0 +1,14 @@
+DEF-CLASS (NO METHODS)
+
+(def-class 'person nil '(fields (name "eve" string) (age 21))) 
+(def-class 'student '(person) '(fields (name "Eva Lu Ator") (university "Berkeley" string)))
+(def-class 'p-complex nil '(fields (:phi 0.0 real) (:rho 1.0 real)))
+
+MAKE
+
+(defparameter eve (make 'person))
+(defparameter adam (make 'person 'name "Adam"))
+(defparameter s1 (make 'student 'name "Eduardo De Filippo" 'age 108))
+(defparameter s2 (make 'student))
+(defparameter s3 (make 'student 'age "42"))      	[FAIL]
+(defparameter pc1 (make 'p-complex :phi (/ pi 2) :rho 42.0))
