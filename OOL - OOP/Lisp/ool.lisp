@@ -41,7 +41,9 @@
                          (class-methods (concat-all 'methods parts)))
                     (if (parts-check class-fields class-methods)
                         (let* ((final-fields 
-                               (get-all-fields parents class-fields))
+                               (fields-validation 
+                                (get-all-fields parents class-fields)
+                                NIL))
                                (final-methods class-methods))
                           (progn
                             (add-class-spec 
@@ -49,8 +51,10 @@
                                         :classname classname 
                                         :parents parents 
                                         :parts (append 
-                                                (list 'FIELDS final-fields) 
-                                                (list 'METHODS final-methods))))
+                                                (list 'FIELDS 
+                                                      final-fields) 
+                                                (list 'METHODS 
+                                                      final-methods))))
                             (class-spec classname)))
                       (error "parts must be a list of methods and fields")))
                 (error "parents must be a list of existing classes")) 
@@ -215,7 +219,8 @@
              
               (if (or (null (third class-part)) ;; if class-part true/nil
                       (eql (third class-part) t))
-                  (if (typep (second class-part) (third part)) ;; check value type
+                  (if (typep (second class-part) 
+                             (third part)) ;; check value type
                       part 
                     (error "Type mismatch for field ~A. ~%~A vs ~A~%"
                            (first part) 
@@ -235,8 +240,8 @@
                         (getf (class-spec (car parents)) 
                               :parts)))))
             (let ((temp-parts (remove-duplicates 
-                               (append (get-all-parents-parts-new 
-                                       (rest parents) parts)
+                               (append (get-all-fields 
+                                        (rest parents) parts)
                                        (fields-validation parts parent-fields))
                                :test #'equal :key #'car)))
                                (let ((final-parts (concat-fields 
@@ -302,7 +307,8 @@
          (class-fields (get-fields class-parts)))
 
     (if (null fields)
-        (list :class class-name :fields (inherit-fields result (first class-fields)))
+        (list :class class-name 
+              :fields (inherit-fields result (first class-fields)))
       (let* ((name (first fields))
              (value (second fields)))
         (if (is-valid-instance-value (first class-fields) name value)
@@ -311,8 +317,7 @@
                                   (append result (list name value)))
           (error "generic invalid-instance error"))))))
 
-(defun is-valid-instance-value (class-fields name value)
-  
+(defun is-valid-instance-value (class-fields name value)  
   (if (null class-fields)
       (error "Unknown field: (~A ~A)" name value)
     (let* ((name-class (first (first class-fields)))
@@ -323,13 +328,17 @@
               (if (eql type-class T)
                   t (error "Cannot assign NIL to type ~A" 
                            type-class))
-            (if (typep value type-class)
-                t (error "Cannot assign ~A to type ~A" 
-                         (type-of value) type-class))) ;; value not null
+            (if (eql type-class T) ;;no type -> check value
+                (if (or (typep value (type-of value-class))
+                        (subtypep (type-of value) (type-of value-class)))
+                    t (error "Cannot assign ~A to type ~A" 
+                             (type-of value) (type-of value-class)))
+              (if (typep value type-class)
+                  t (error "Cannot assign ~A to type ~A" 
+                           (type-of value) type-class)))) ;; value not null
         (is-valid-instance-value (rest class-fields) 
                                  name 
                                  value))))) ;; continue
-
 
 (defun inherit-fields (fields default-fields)
   
@@ -348,6 +357,7 @@
     (if (eql (first fields) field-name)
         T 
       (is-name-present (cddr fields) field-name))))
+
 
 
 ;; FIELD
