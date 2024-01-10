@@ -40,22 +40,17 @@
                   (let* ((class-fields (concat-all 'fields parts))
                          (class-methods (concat-all 'methods parts)))
                     (if (parts-check class-fields class-methods)
-                        (let* ((new-fields 
-                                (concat-fields 
-                                 (fields-validation 
-                                  class-fields 
-                                  (get-all-parents-parts 
-                                   parents class-fields)) 
-                                 (get-all-parents-parts parents class-fields)))
-                               (new-methods class-methods))
+                        (let* ((final-fields 
+                               (get-all-fields parents class-fields))
+                               (final-methods class-methods))
                           (progn
                             (add-class-spec 
                              classname (list 
                                         :classname classname 
                                         :parents parents 
                                         :parts (append 
-                                                (list 'FIELDS new-fields) 
-                                                (list 'METHODS new-methods))))
+                                                (list 'FIELDS final-fields) 
+                                                (list 'METHODS final-methods))))
                             (class-spec classname)))
                       (error "parts must be a list of methods and fields")))
                 (error "parents must be a list of existing classes")) 
@@ -139,9 +134,6 @@
         (cons part
               (concat-fields rest-parts parents-parts))))))
 
-
-
-
 (defun fields-validation (parts parents-parts)
   (let* ((fields parts)
          (parents-fields parents-parts))
@@ -152,6 +144,7 @@
 
 ;; adds missing field parts and normalize field to 3-parameter-form
 (defun fill-in-field (part parents-fields) 
+
   (cond
    ((or (= 1 (length part))
         (and (= 2 (length part)) 
@@ -177,6 +170,7 @@
 
 ;; add missing value to field if available to inherit
 (defun fill-value-field (part parents-fields)
+
   (if (null parents-fields)
       (list (first part) 
             nil) ;; normalize field length by adding value
@@ -188,8 +182,6 @@
 
 ;; add missing type to field if available to inherit
 (defun fill-type-field (part parents-fields)
-  (print part)
-  (print parents-fields)
   (if (null parents-fields) ;; base
       (list (first part) 
             (second part) 
@@ -218,38 +210,40 @@
     (let ((class-part (first parts-list))) ;; else
       
       (if (eql (first part) (first class-part)) ;; same name -> type check
-          (if (or (null (third class-part)) ;; if class-part true/nil
-                  (eql (third class-part) t))
-              (if (typep (second class-part) (third part)) ;; check value type
-                  part 
-                (error "Type mismatch for field ~A. ~%~A vs ~A~%"
-                       (first part) 
-                       (third part) 
-                       (type-of (second class-part))))
-            (if (eql (third part) (third class-part))
-                part
-              (error "Type mismatch for field ~A: ~A vs ~A"
-                     (first part) (third part) (third class-part))))
-        (compatibility-check part (rest parts-list)))))) ;; continue
+          (if (null (second class-part))
+              part
+             
+              (if (or (null (third class-part)) ;; if class-part true/nil
+                      (eql (third class-part) t))
+                  (if (typep (second class-part) (third part)) ;; check value type
+                      part 
+                    (error "Type mismatch for field ~A. ~%~A vs ~A~%"
+                           (first part) 
+                           (third part) 
+                           (type-of (second class-part))))
+                (if (eql (third part) (third class-part))
+                    part
+                  (error "Type mismatch for field ~A: ~A vs ~A"
+                         (first part) (third part) (third class-part)))))
+              (compatibility-check part (rest parts-list)))))) ;; continue
 
-(defun get-all-parents-parts (parents parts)
+(defun get-all-fields (parents parts)
   (if parents
-      (if(is-class (car parents)) 
-          (let* ((parent (car parents))
-                 (parent-spec (class-spec parent))
-                 (parent-fields (first (get-fields 
-                                 (getf parent-spec :parts)))))
-            (if (or (fields-validation parts parent-fields)
-                    (null parts))
-                (let ((new-parts (append 
-                                  (remove-duplicates 
-                                   (append (cdr parent-fields) 
-                                           (cdr parts))
-                                   :test #'equal :key #'car))))
-                  (get-all-parents-parts (cdr parents) new-parts))
-              (error "fields are not valid")))
-        (error "~A is not an existing class" (car parents)))
-    parts))
+      (if (is-class (car parents))
+          (let ((parent-fields 
+                 (first (get-fields 
+                        (getf (class-spec (car parents)) 
+                              :parts)))))
+            (let ((temp-parts (remove-duplicates 
+                               (append (get-all-parents-parts-new 
+                                       (rest parents) parts)
+                                       (fields-validation parts parent-fields))
+                               :test #'equal :key #'car)))
+                               (let ((final-parts (concat-fields 
+                                                   temp-parts parent-fields)))
+             final-parts)))
+          (error "~A is not an existing class" (car parents)))
+      parts)) ;; aggiungere il compatibility check se da errori strani
 
 ;; field structure check
 (defun is-valid-fields (fields)
@@ -299,29 +293,26 @@
 
 ;; make utils
 (defun make-default-instance (class-name)
-  (let ((class-parts (getf (class-spec class-name) :PARTS)))
-    (let* ((start (position 'FIELDS class-parts :test #'eq))
-           (end (position 'METHODS class-parts :test #'eq))
-           (fields (subseq class-parts (1+ start) end)))
-      (list :class class-name :fields (inherit-fields '() fields)))))
+  (let* ((class-parts (getf (class-spec class-name) :PARTS))
+         (fields (get-fields class-parts)))
+      (list :class class-name :fields (inherit-fields '() (first fields)))))
 
 (defun make-custom-instance (class-name fields &optional (result nil))
-  (let* ((class-parts (getf (class-spec class-name) :PARTS))
-         (start (position 'FIELDS class-parts :test #'eq))
-         (end (position 'METHODS class-parts :test #'eq))
-         (class-fields (subseq class-parts (1+ start) end)))
-    
+    (let* ((class-parts (getf (class-spec class-name) :PARTS))
+         (class-fields (get-fields class-parts)))
+
     (if (null fields)
-        (list :class class-name :fields (inherit-fields result class-fields))
+        (list :class class-name :fields (inherit-fields result (first class-fields)))
       (let* ((name (first fields))
              (value (second fields)))
-        (if (is-valid-instance-value class-fields name value)
+        (if (is-valid-instance-value (first class-fields) name value)
             (make-custom-instance class-name 
                                   (cddr fields) 
                                   (append result (list name value)))
           (error "generic invalid-instance error"))))))
 
 (defun is-valid-instance-value (class-fields name value)
+  
   (if (null class-fields)
       (error "Unknown field: (~A ~A)" name value)
     (let* ((name-class (first (first class-fields)))
@@ -341,6 +332,7 @@
 
 
 (defun inherit-fields (fields default-fields)
+  
   (if (null default-fields)
       fields
     (let* ((field-name (first (first default-fields)))
