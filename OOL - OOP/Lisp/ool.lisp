@@ -20,11 +20,6 @@
 (defun remove-all-classes ()
   (clrhash *classes-specs*))
 
-(defun find-all (classname)
-  (if (symbolp classname)
-      (list (gethash classname *classes-specs*))
-    (error "classname must be a symbol")))
-
 
 
 ;;;; MEMO!!!!
@@ -109,17 +104,14 @@
 
 ;; FIELDS
 (defun fields (&rest field-specs)
-  (if (null (car field-specs))
+  (if (null field-specs)
       '()
-    (dolist (spec field-spec out)
-      (let* (name (first spec))
-        (value (second spec))
-        (f-type (T)))
-      
-      (cond (not(null (cddr spec)))
-            (setf f-type (car (cddr spec))))       
-      (push (field name value type) result))))
-
+    (let* ((spec (first field-specs))
+           (name (first spec))
+           (value (second spec))
+           (f-type (if (null (cddr spec)) 'T (car (cddr spec))))
+           (field (list name value f-type)))
+      (cons field (apply #'fields (rest field-specs))))))
 
 
 ;; fields utils
@@ -278,8 +270,8 @@
 
 
 ;; METHODS
-(defun methods (name argslist form) 
-  t)
+(defun methods (&rest methods-specs)
+  )
 
 
 ;; methods utils
