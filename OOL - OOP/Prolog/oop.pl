@@ -18,7 +18,7 @@ def_class(Classname, Parents, Parts) :-
           class_already_defined, fail),
     parents_check(Parents),
     parts_check(Parts, Classname),
-    concat_parts(Parts, Parents, Result),
+    concat_parts(Parts, Parents, Classname, Result),
     assertz(class(Classname, Parents, Result)).
 
 %%%% DEF_CLASS UTILS
@@ -91,6 +91,7 @@ pred_check(instance(InstanceName, Classname, ParameterList),
           [class(_C, _P, F) | _]),
     memberchk(method(MethodName, _, _), F).
 
+
 replace_in_predicate(Instance,
                      (Predicate, Rest),
                      (NewPredicate, NewRest)) :-
@@ -153,10 +154,10 @@ is_method(Method, Key) :-
     callable(Form),
     Key = MethodName.
 
-concat_parts(Parts, Parents, Result) :-
+concat_parts(Parts, Parents, Classname, Result) :-
     check_parents_type(Parts, Parents, ModifiedParts),
     append(ModifiedParts, [], TempResult),
-    check_parents_parts(Parents, TempResult, Result).
+    check_parents_parts(Parents, TempResult, Classname, Result).
 
 check_parents_type(Parts, [], Parts) :- !.
 check_parents_type(Parts, [ParentsHead | ParentsTail], ModifiedParts) :-
@@ -212,65 +213,74 @@ is_subtype(integer, rational).
 is_subtype(rational, number).
 is_subtype(rational, rational).
 
-check_parents_parts([], NewParts, NewParts) :- !.
-check_parents_parts([H | T], NewParts, Result) :-
+check_parents_parts([], NewParts, _Classname, NewParts) :- !.
+check_parents_parts([H | T], NewParts, Classname, Result) :-
     findall(Parts, class(H, _, Parts), PartsList),
     flatten(PartsList, FlatParts),
-    append_parts(NewParts, FlatParts, UpdatedNewParts),
-    check_parents_parts(T, UpdatedNewParts, Result).
+    append_parts(NewParts, FlatParts, Classname, UpdatedNewParts),
+    check_parents_parts(T, UpdatedNewParts, Classname, Result).
 
-append_parts(NewParts, [], NewParts) :-
+append_parts(NewParts, [], _Classname, NewParts) :-
     !.
 append_parts(NewParts,
              [field(Key, _Value) | Tail],
+             Classname,
              Result) :-
     memberchk(field(Key, _), NewParts),
-    append_parts(NewParts, Tail, Result),
+    append_parts(NewParts, Tail, Classname, Result),
     !.
 append_parts(NewParts,
              [field(Key, _Value) | Tail],
+             Classname,
              Result) :-
     memberchk(field(Key, _, _), NewParts),
-    append_parts(NewParts, Tail, Result),
+    append_parts(NewParts, Tail, Classname, Result),
     !.
 append_parts(NewParts,
              [field(Key, _Value, _Type) | Tail],
+             Classname,
              Result) :-
     memberchk(field(Key, _, _), NewParts),
-    append_parts(NewParts, Tail, Result),
+    append_parts(NewParts, Tail, Classname, Result),
     !.
 append_parts(NewParts,
              [field(Key, _Value, _Type) | Tail],
+             Classname,
              Result) :-
     memberchk(field(Key, _), NewParts),
-    append_parts(NewParts, Tail, Result),
+    append_parts(NewParts, Tail, Classname, Result),
     !.
 append_parts(NewParts,
              [method(Key, _, _) | Tail],
+             Classname,
              Result) :-
     memberchk(method(Key, _, _), NewParts),
-    append_parts(NewParts, Tail, Result),
+    append_parts(NewParts, Tail, Classname, Result),
     !.
 append_parts(NewParts,
              [field(Key, Value) | Tail],
+             Classname,
              Result) :-
     append(NewParts, [field(Key, Value)],
            UpdatedNewParts),
-    append_parts(UpdatedNewParts, Tail, Result),
+    append_parts(UpdatedNewParts, Tail, Classname, Result),
     !.
 append_parts(NewParts,
              [field(Key, Value, Type) | Tail],
+             Classname,
              Result) :-
     append(NewParts, [field(Key, Value, Type)],
            UpdatedNewParts),
-    append_parts(UpdatedNewParts, Tail, Result),
+    append_parts(UpdatedNewParts, Tail, Classname, Result),
     !.
 append_parts(NewParts,
              [method(Key, Args, Form) | Tail],
+             Classname,
              Result) :-
     append(NewParts, [method(Key, Args, Form)],
            UpdatedNewParts),
-    append_parts(UpdatedNewParts, Tail, Result),
+    create_method_predicate(method(Key, Args, Form), Classname),
+    append_parts(UpdatedNewParts, Tail, Classname, Result),
     !.
 
 
