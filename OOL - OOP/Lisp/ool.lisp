@@ -261,12 +261,23 @@
       (is-name-present (cddr fields) field-name))))
 
 
-
+;; FIELD
 (defun field (instance field-name)
   (if(is-instance instance)
-   ()
+      (getf (getf instance :fields) field-name)
     (error "~A is not a valid instance" instance)))
-     
+
+;; FIELD*
+(defun field* (instance &rest field-names)
+  (if (null field-names)
+      (error "no attributes to traverse or field not found")
+    (let ((value (field instance (first field-names))))
+      (if (= 1 (length field-names))
+          value
+        (if (is-instance value)
+            (apply #'field* value (rest field-names))
+          (error "~A is not a valid instance" value))))))
+
 
 
 ;; IS_CLASS
