@@ -51,7 +51,7 @@
         (error "classname already exists")) 
     (error "classname must be a symbol")))
 
-;; DEF_CLASS UTILS 
+;; def-class utils 
 (defun is-class-list (parents)
   (if (null parents)
       t
@@ -69,7 +69,24 @@
           (error "parts must be a list of methods and fields")))
     (error "parts must be a list of methods and fields")))
 
-;; FIELD MANAGEMENT
+
+
+;; FIELDS
+(defun fields (&rest field-specs)
+  (if (null (car field-specs))
+      '()
+    (dolist (spec field-spec out)
+      (let* (name (first spec))
+        (value (second spec))
+        (f-type (T)))
+      
+      (cond (not(null (cddr spec)))
+            (setf f-type (car (cddr spec))))       
+      (push (field name value type) result))))
+
+
+
+;; fields utils
 (defun concat-fields (parts parents-parts)
   (if (null parts)
       parents-parts
@@ -184,19 +201,6 @@
         (error "field-type must be a symbol"))
     (error "field-name must be a symbol")))
 
-(defun fields (&rest field-specs)
-  (if (null (car field-specs))
-      '()
-    (dolist (spec field-spec out)
-      (let* (name (first spec))
-        (value (second spec))
-        (f-type (T)))
-      
-      (cond (not(null (cddr spec)))
-            (setf f-type (car (cddr spec))))       
-      (push (field name value type) result))))
-
-
 
 
 ;; MAKE
@@ -207,7 +211,7 @@
         (make-custom-instance class-name fields)) ;; return instance with custom values
     (error "~A is not a valid class-name" class-name)))
 
-;; MAKE UTILS
+;; make utils
 (defun make-default-instance (class-name)
   (let ((class-parts (getf (class-spec class-name) :PARTS)))
     (let* ((start (position 'FIELDS class-parts :test #'eq))
@@ -289,24 +293,30 @@
 
 
 ;; IS_INSTANCE
+
 (defun is-instance (value &optional(class-name T))
   (if (equal class-name T)
-    (if (and (listp value) (not (eql (getf value :class) NIL)))
-        T
-        NIL)  ;;checking if value is a valid instance
-  (if(is-class class-name)
-      (if (and (listp value) (is-subclass-of (getf value :class) class-name))
+      (if (and (listp value) (not (null (getf value :class))))
           T
+        NIL)  ;;checking if value is a valid instance
+    (if(is-class class-name)
+        (if (and (listp value) (or (eql class-name (getf value :class)) (is-subclass-of (getf value :class) class-name)))
+            T
           NIL) ;;checking if value is a valid instance of class            
-  (error "~A is not a valid class" class-name))))
+      (error "~A is not a valid class" class-name))))
 
-;; IS_INSTANCE UTILS
-(defun is-subclass-of (subclass superclass)
-  (if (eql subclass superclass)
-      T
-    (if (eql (getf subclass :parents) NIL)
-        NIL
-      (check-parents (getf subclass :parents) superclass))))
+(defun is-subclas-of (class-name passed-class-name)
+  (let ((parents (get-all-parents class-name)))
+    (if (member passed-class-name parents) T NIL)))
+
+(defun get-all-parents (class-name)
+  (let ((class (class-spec class-name)))
+    (if class
+        (let ((parents (getf class :parents)))
+          (if parents
+              (append parents (mapcan #'get-all-parents parents))
+            nil))
+      (error "Class ~A not found." class-name))))
 
 (defun check-parents (parents superclass)
   (if (null parents)
