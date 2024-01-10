@@ -154,8 +154,63 @@ is_method(Method, Key) :-
     Key = MethodName.
 
 concat_parts(Parts, Parents, Result) :-
-    append(Parts, [], TempResult),
+    check_parents_type(Parts, Parents, ModifiedParts),
+    append(ModifiedParts, [], TempResult),
     check_parents_parts(Parents, TempResult, Result).
+
+check_parents_type(Parts, [], Parts) :- !.
+check_parents_type(Parts, [ParentsHead | ParentsTail], ModifiedParts) :-
+    findall(P, class(ParentsHead, _, P), ParentsPart),
+    flatten(ParentsPart, FlattenParentParts),
+    check_all_parts(Parts, FlattenParentParts, ModifiedParts),
+    check_parents_type(ModifiedParts, ParentsTail, ModifiedParts).
+
+check_all_parts([], _ParentParts, []) :-
+    !.
+check_all_parts([PartsHead | PartsTail], ParentParts,
+                [ModifiedPartsHead | ModifiedPartsTail]) :-
+    PartsHead = field(Key, _, Type),
+    member(field(Key, _, ParentType), ParentParts),
+    is_subtype(Type, ParentType),
+    ModifiedPartsHead = field(Key, _, Type),
+    !,
+    check_all_parts(PartsTail, ParentParts, ModifiedPartsTail).
+check_all_parts([PartsHead | PartsTail], ParentParts,
+                [ModifiedPartsHead | ModifiedPartsTail]) :-
+    PartsHead = field(Key, Value),
+    member(field(Key, _, ParentType), ParentParts),
+    check_type(Value, ParentType),
+    ModifiedPartsHead = field(Key, Value, ParentType),
+    !,
+    check_all_parts(PartsTail, ParentParts, ModifiedPartsTail).
+check_all_parts([PartsHead | PartsTail], ParentParts,
+                [PartsHead | PartsTail]) :-
+    PartsHead = field(Key, _Value),
+    \+ member(field(Key, _, _), ParentParts),
+    !,
+    check_all_parts(PartsTail, ParentParts, PartsTail).
+check_all_parts([PartsHead | PartsTail], ParentParts,
+                [PartsHead | PartsTail]) :-
+    PartsHead = field(Key, _Value, _Type),
+    \+ member(field(Key, _, _), ParentParts),
+    !,
+    check_all_parts(PartsTail, ParentParts, PartsTail).
+check_all_parts([PartsHead | PartsTail], ParentParts,
+                [PartsHead | PartsTail]) :-
+    PartsHead = method(_, _, _),
+    !,
+    check_all_parts(PartsTail, ParentParts, PartsTail).
+
+
+is_subtype(integer, integer).
+is_subtype(integer, number).
+is_subtype(integer, float).
+is_subtype(float, float).
+is_subtype(float, number).
+is_subtype(number, number).
+is_subtype(integer, rational).
+is_subtype(rational, number).
+is_subtype(rational, rational).
 
 check_parents_parts([], NewParts, NewParts) :- !.
 check_parents_parts([H | T], NewParts, Result) :-
