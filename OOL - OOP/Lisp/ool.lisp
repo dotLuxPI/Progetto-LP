@@ -37,7 +37,7 @@
       (if (not (gethash classname *classes-specs*))    
           (if (or (listp parents) (null parents))
               (if (is-class-list parents)
-                  (if (parts-check parts)
+                  (if (or (parts-check parts) (null parts))
                       (let ((finalParts (concat-fields (parts-validation (cdr parts) (get-all-parents-parts parents (cdr parts))) (get-all-parents-parts parents (cdr parts)))))
                         (progn
                           (add-class-spec classname (list 
@@ -67,7 +67,7 @@
         (if (is-valid-fields fields)
             T
           (error "parts must be a list of methods and fields")))
-    (error "parts must be a list of methods and fields")))
+    NIL))
 
 
 
@@ -166,15 +166,17 @@
 
 (defun get-all-parents-parts (parents parts)
   (if parents
-      (let* ((parent (car parents))
-             (parent-spec (class-spec parent))
-             (parent-fields (to-list (getf parent-spec :parts)))
-             (parts (to-list parts)))
-        (if (parts-validation parts (cdr parent-fields))
-            (let ((new-parts (append (remove-duplicates (append (cdr parent-fields) (cdr parts))
-                                                        :test #'equal :key #'car))))
-              (get-all-parents-parts (cdr parents) new-parts))
-          (error "generic error")))
+      (if(is-class (car parents)) 
+          (let* ((parent (car parents))
+                 (parent-spec (class-spec parent))
+                 (parent-fields (to-list (getf parent-spec :parts)))
+                 (parts (to-list parts)))
+            (if (or (parts-validation parts (cdr parent-fields)) (null parts))
+                (let ((new-parts (append (remove-duplicates (append (cdr parent-fields) (cdr parts))
+                                                            :test #'equal :key #'car))))
+                  (get-all-parents-parts (cdr parents) new-parts))
+              (print "ciao")))
+        (error "~A is not an existing class" (car parents)))
     parts))
 
 ;; field structure check
@@ -293,7 +295,6 @@
 
 
 ;; IS_INSTANCE
-
 (defun is-instance (value &optional(class-name T))
   (if (equal class-name T)
       (if (and (listp value) (not (null (getf value :class))))
@@ -305,7 +306,7 @@
           NIL) ;;checking if value is a valid instance of class            
       (error "~A is not a valid class" class-name))))
 
-(defun is-subclas-of (class-name passed-class-name)
+(defun is-subclass-of (class-name passed-class-name)
   (let ((parents (get-all-parents class-name)))
     (if (member passed-class-name parents) T NIL)))
 
