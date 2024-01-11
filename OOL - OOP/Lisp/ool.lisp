@@ -271,13 +271,45 @@
 
 ;; METHODS
 (defun methods (&rest methods-specs)
-  )
+  (if (null methods-specs)
+      '()
+    (let* ((spec (first methods-specs))
+           (name (first spec))
+           (args (second spec))
+           (form (third spec))
+           (method (list name args form)))
+      (cons method (apply #'methods (rest methods-specs))))))
 
 
 ;; methods utils
 (defun is-valid-methods (methods) 
-  t)
+  (if (null methods)
+      t
+    (and (is-valid-method-structure (car methods))
+         (is-valid-methods (cdr methods)))))
 
+(defun is-valid-method-structure (method)
+  (if (= 3 (length method)) ;; method is of length 3
+      (is-method (first method) (second method) (third method))))
+
+(defun is-method (name args form)
+  (if (and name args form) ;; every component is not null
+      (if (symbolp name)
+          (if (listp args)
+              (if (is-sexp form)
+                  t 
+                (error "~A in ~A is not a valid expression" form name))
+            (error "~A args must be a list of standard parameter" name))
+        (error "method's name must be a symbol"))
+    (error "methods must have 3 non-null arguments")))
+
+(defun is-sexp (f)
+  (cond ;; method's sexp is...
+        ((numberp f) t) ;; a number,
+        ((symbolp f) t) ;; a symbol,
+        ((stringp f) t) ;; a string,
+        ((listp f) t)   ;; a list,
+        (t nil)))       ;; not a valid input.
 
 
 ;; MAKE

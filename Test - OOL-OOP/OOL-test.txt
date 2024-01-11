@@ -4,6 +4,14 @@ DEF-CLASS (NO METHODS)
 (def-class 'student '(person) '(fields (name "Eva Lu Ator") (university "Berkeley" string)))
 (def-class 'p-complex nil '(fields (:phi 0.0 real) (:rho 1.0 real)))
 
+DEF-CLASS (FULL)
+
+(def-class 'person nil '(fields (name "eve" string) (age 21)))
+
+(def-class 'student '(person) '(fields (name "Eva Lu Ator") (university "Berkeley" string)) '(methods (talk (&optional (out *standard-output*)) (format out "My name is ~A~%My age is ~D~%" (field this 'name) (field this 'age)))))
+
+?- complex -?
+
 MAKE
 
 (defparameter eve (make 'person))
