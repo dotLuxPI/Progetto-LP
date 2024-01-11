@@ -25,6 +25,7 @@
 ;;;; MEMO!!!!
 ;; def-class deve restituire il class-name in caso di successo
 ;; attualmente restituisce l'intera classe
+;; ez tutorial
 
 ;; DEF_CLASS
 (defun def-class (classname &optional (parents '()) &rest parts)
@@ -50,7 +51,7 @@
                                                       final-fields) 
                                                 (list 'METHODS 
                                                       final-methods))))
-                            (class-spec classname)))
+                            classname))
                       (error "parts must be a list of methods and fields")))
                 (error "parents must be a list of existing classes")) 
             (error "parents must be a list of classes")) 
@@ -304,12 +305,11 @@
     (error "methods must have 3 non-null arguments")))
 
 (defun is-sexp (f)
-  (cond ;; method's sexp is...
-        ((numberp f) t) ;; a number,
-        ((symbolp f) t) ;; a symbol,
-        ((stringp f) t) ;; a string,
-        ((listp f) t)   ;; a list,
-        (t nil)))       ;; not a valid input.
+  (cond ((null f) t)
+        ((atom f) t)
+        ((and (consp f)
+              (is-sexp (car f))
+              (is-sexp (cdr f))))))
 
 
 ;; MAKE
