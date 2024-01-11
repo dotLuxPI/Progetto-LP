@@ -40,7 +40,9 @@
                                (fields-validation 
                                 (get-all-fields parents class-fields)
                                 NIL))
-                               (final-methods class-methods))
+                               (final-methods (get-all-methods
+                                               parents
+                                               class-methods)))
                           (progn
                             (add-class-spec 
                              classname (list 
@@ -51,7 +53,7 @@
                                                       final-fields) 
                                                 (list 'METHODS 
                                                       final-methods))))
-                            classname))
+                            (class-spec classname)))
                       (error "parts must be a list of methods and fields")))
                 (error "parents must be a list of existing classes")) 
             (error "parents must be a list of classes")) 
@@ -116,20 +118,20 @@
 
 
 ;; fields utils
-(defun concat-fields (parts parents-parts)
+(defun concat-parts (parts parents-parts)
   (if (null parts)
       parents-parts
     (let ((part (car parts))
           (rest-parts (cdr parts)))
       (if (assoc (car part) parents-parts :test #'equal)
-          (cons part (concat-fields rest-parts 
+          (cons part (concat-parts rest-parts 
                                     (remove 
                                      (assoc (car part) 
                                             parents-parts 
                                             :test #'equal) 
                                      parents-parts)))
         (cons part
-              (concat-fields rest-parts parents-parts))))))
+              (concat-parts rest-parts parents-parts))))))
 
 (defun fields-validation (parts parents-parts)
   (let* ((fields parts)
@@ -237,7 +239,7 @@
                                         (rest parents) parts)
                                        (fields-validation parts parent-fields))
                                :test #'equal :key #'car)))
-                               (let ((final-parts (concat-fields 
+                               (let ((final-parts (concat-parts 
                                                    temp-parts parent-fields)))
              final-parts)))
           (error "~A is not an existing class" (car parents)))
@@ -310,6 +312,27 @@
         ((and (consp f)
               (is-sexp (car f))
               (is-sexp (cdr f))))))
+
+(defun get-all-methods (parents parts)
+  (if parents
+      (if (is-class (car parents))
+          (let ((parent-methods (first (get-methods 
+                                 (getf (class-spec (car parents)) :parts)))))
+            (let ((temp-methods (remove-duplicates 
+                                 (append 
+                                  (get-all-methods (rest parents) parts))
+                                 :test #'equal :key #'car)))
+              (let ((final-parts (concat-parts
+                                  temp-methods parent-methods)))
+                final-parts)))
+        (error "~A is not an existing class" (car parents))) ;; code
+    parts))
+
+;; method processing
+(defun process-method (method-name method-spec)
+  (eval (rewrite-method-code method-name method-spec)))
+
+(defun rewrite-method-code (name spec)) 
 
 
 ;; MAKE
