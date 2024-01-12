@@ -334,6 +334,23 @@
 
 (defun rewrite-method-code (name spec)) 
 
+;; check if instance passed has the method available to call
+(defun instance-method-check (instance method-name)
+  (if (is-instance instance)
+      (let* ((class (class-spec (getf instance :class)))
+             (class-name (getf class :classname))
+             (methods (first (get-methods (getf class :parts)))))
+             (if (is-method-listed method-name methods)
+                 T (error "~A is not defined for ~A" method-name class-name)))
+    (error "invalid intstance on method call ~A" method-name)))
+
+(defun is-method-listed (name methods)
+  (if (null methods)
+      nil
+    (if (eql name (caar methods))
+        T 
+      (is-method-listed name (rest methods)))))
+
 
 ;; MAKE
 (defun make (class-name &rest fields)
@@ -345,12 +362,12 @@
 
 ;; make utils
 (defun make-default-instance (class-name)
-  (let* ((class-parts (getf (class-spec class-name) :PARTS))
+  (let* ((class-parts (getf (class-spec class-name) :parts))
          (fields (get-fields class-parts)))
       (list :class class-name :fields (inherit-fields '() (first fields)))))
 
 (defun make-custom-instance (class-name fields &optional (result nil))
-    (let* ((class-parts (getf (class-spec class-name) :PARTS))
+    (let* ((class-parts (getf (class-spec class-name) :parts))
          (class-fields (get-fields class-parts)))
 
     (if (null fields)
