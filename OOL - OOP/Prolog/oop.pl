@@ -479,7 +479,8 @@ get_parents([], []).
 get_parents([H | T], AllParents) :-
     findall(Parents, class(H, Parents, _), P),
     flatten(P, FlatP),
-    append([H], FlatP, TempParents),
+    get_parents(FlatP, GrandParents),
+    append([H], GrandParents, TempParents),
     get_parents(T, RestParents),
     append(TempParents, RestParents, AllParents).
 
