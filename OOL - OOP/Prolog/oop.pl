@@ -140,12 +140,42 @@ check_type(instance(InstanceName, _Classname, _ParameterList),
     is_instance(InstanceName, Type),
     !.
 check_type(Value, Type) :-
-    is_of_type(Type, Value),
+    get_type(Value, ValueType),
+    is_subtype(ValueType, Type),
     !.
 check_type(_Value, _Type) :-
     writeln('Invalid Type or Type and Value not matching'),
     !,
     fail.
+
+get_type(Value, ValueType) :-
+    integer(Value),
+    ValueType = 'integer',
+    !.
+get_type(Value, ValueType) :-
+    rational(Value),
+    ValueType = 'rational',
+    !.
+get_type(Value, ValueType) :-
+    float(Value),
+    ValueType = 'float',
+    !.
+get_type(Value, ValueType) :-
+    number(Value),
+    ValueType = 'number',
+    !.
+get_type(Value, ValueType) :-
+    string(Value),
+    ValueType = 'string',
+    !.
+get_type(Value, ValueType) :-
+    atom(Value),
+    ValueType = 'atom',
+    !.
+get_type(Value, ValueType) :-
+    atomic(Value),
+    ValueType = 'atomic',
+    !.
 
 is_method(Method, Key) :-
     Method = method(MethodName, Args, Form),
@@ -202,16 +232,32 @@ check_all_parts([PartsHead | PartsTail], ParentParts,
     !,
     check_all_parts(PartsTail, ParentParts, PartsTail).
 
-
+%%%% integer type management
 is_subtype(integer, integer).
 is_subtype(integer, number).
 is_subtype(integer, float).
+is_subtype(integer, rational).
+is_subtype(integer, atomic).
+%%%% float type management
 is_subtype(float, float).
 is_subtype(float, number).
-is_subtype(number, number).
-is_subtype(integer, rational).
-is_subtype(rational, number).
+is_subtype(float, atomic).
+%%%% rational type management
 is_subtype(rational, rational).
+is_subtype(rational, number).
+is_subtype(rational, atomic).
+%%%% number type management
+is_subtype(number, number).
+is_subtype(number, atomic).
+%%%% string type management
+is_subtype(string, string).
+is_subtype(string, atom).
+is_subtype(string, atomic).
+%%%% atom type management
+is_subtype(atom, atom).
+is_subtype(atom, atomic).
+%%%% atomic type management
+is_subtype(atomic, atomic).
 
 check_parents_parts([], NewParts, _Classname, NewParts) :- !.
 check_parents_parts([H | T], NewParts, Classname, Result) :-
