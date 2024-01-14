@@ -11,23 +11,21 @@
 (defun class-spec (name)
   (gethash name *classes-specs*))
 
-;;class utils
+;; remove-class/1: utility method that removes class identified 
+;; by name from the hash-table
 (defun remove-class (name)
   (if (symbolp name)
       (remhash name *classes-specs*)
     (error "classname must be a symbol")))
 
+;; remove-all-classes/0: utility method that drops every class from 
+;; the hash-table
 (defun remove-all-classes ()
   (clrhash *classes-specs*))
 
 
 
-;;;; MEMO!!!!
-;; def-class deve restituire il class-name in caso di successo
-;; attualmente restituisce l'intera classe
-;; ez tutorial
-
-;; DEF_CLASS
+;; DEF_CLASS/3
 (defun def-class (classname &optional (parents '()) &rest parts)
   (if (symbolp classname) 
       (if (not (gethash classname *classes-specs*))    
@@ -53,22 +51,25 @@
                                                       final-fields) 
                                                 (list 'METHODS 
                                                       final-methods))))
-                            (class-spec classname)))
+                            classname))
                       (error "parts must be a list of methods and fields")))
                 (error "parents must be a list of existing classes")) 
             (error "parents must be a list of classes")) 
         (error "classname already exists")) 
     (error "classname must be a symbol")))
 
-;; def-class utils 
+;; is-class-list 
 (defun is-class-list (parents)
   (if (null parents)
       t
     (and (is-class (car parents)) (is-class-list (cdr parents)))))
 
+;; to-list/1: casts the parameter passed to type list
 (defun to-list (x)
   (if (listp x) x (list x)))
 
+;; concat-all/2: gets every field or method 
+;; (depends on delimiter value)
 (defun concat-all (delimiter parts)
   (if (null parts)
       NIL
@@ -78,13 +79,13 @@
          (concat-all delimiter (rest parts))) ;;concat
       (concat-all delimiter (rest parts))))) ;; continue
 
-;; parts-check
+;; parts-check/2: calls checking function on fields and methods
 (defun parts-check (fields methods)
-  (if (and (listp fields) (listp methods)) ;; list or null
+  (if (and (listp fields) (listp methods))
       (if (is-valid-fields fields)
           (if (is-valid-methods methods)
               T NIL))))
-
+;; get-fields/1: takes parts as input, outputs only the fields
 (defun get-fields (parts)
   (let* ((start (position 'FIELDS parts :test #'eq))
          (end (position 'METHODS parts :test #'eq)))
@@ -94,6 +95,7 @@
           (rest parts)
         (subseq parts (1+ start) end)))))
 
+;; get-methods/2: takes parts as input, outputs only the methods
 (defun get-methods (parts)
   (let* ((start (position 'METHODS parts :test #'eq))
          (end (length parts)))
@@ -105,7 +107,7 @@
 
 
 
-;; FIELDS
+;; FIELDS/N
 (defun fields (&rest field-specs)
   (if (null field-specs)
       '()
@@ -117,7 +119,8 @@
       (cons field (apply #'fields (rest field-specs))))))
 
 
-;; fields utils
+;; concat-parts/2: concatenates parts with parents-parts, giving priority
+;; to the class parts and then parents-parts following the list order
 (defun concat-parts (parts parents-parts)
   (if (null parts)
       parents-parts
@@ -133,6 +136,9 @@
         (cons part
               (concat-parts rest-parts parents-parts))))))
 
+;; field-validation/2: checks if class parts has every field in it as a 
+;; 3 parameter field (field name value type) and fills the fields if
+;; parameters are missing using fill-in-field
 (defun fields-validation (parts parents-parts)
   (let* ((fields parts)
          (parents-fields parents-parts))
@@ -141,7 +147,9 @@
       (cons (fill-in-field (car fields) parents-fields) 
             (fields-validation (rest fields) parents-fields)))))
 
-;; adds missing field parts and normalize field to 3-parameter-form
+;; fill-in-field/2: adds missing field components with inheritance 
+;; (checking if fields are compatible with their parent-classes) and normalize
+;; field to the 3-parameter-form: (field name value type)
 (defun fill-in-field (part parents-fields) 
 
   (cond
@@ -167,55 +175,58 @@
      part 
      parents-fields))))
 
-;; add missing value to field if available to inherit
+;; fill-value-field/2: adds missing value to field if available to inherit from
+;; parents, else set value as NIL to normalize length
 (defun fill-value-field (part parents-fields)
 
   (if (null parents-fields)
       (list (first part) 
-            nil) ;; normalize field length by adding value
+            nil)
     (let ((parent-part (first parents-fields)))
-      (if (eql (first part) (first parent-part)) ;; if same field-name
+      (if (eql (first part) (first parent-part))
           (list (first part) 
-                (second parent-part)) ;; normalize field length by adding value
-        (fill-value-field part (rest parents-fields)))))) ;; continue
+                (second parent-part))
+        (fill-value-field part (rest parents-fields))))))
 
-;; add missing type to field if available to inherit
+;; fill-type-field/2: adds missing type to field if available to inherit from
+;; parents, else set type as T to normalize length
 (defun fill-type-field (part parents-fields)
-  (if (null parents-fields) ;; base
+  (if (null parents-fields)
       (list (first part) 
             (second part) 
-            t) ;; normalize field length by adding type
+            t)
     (let ((parent-part (first parents-fields)))
-      (if (eql (first part) (first parent-part)) ;; if same field-name
-          (if (third parent-part) ;; if parent has field-type
+      (if (eql (first part) (first parent-part))
+          (if (third parent-part)
               (if (or (typep (second part) 
-                             (third parent-part)) ;; if type or subtype
+                             (third parent-part)) 
                       (subtypep (type-of (second part)) (third parent-part)))
-                  (if (= 2 (length part)) ;; add type to field
+                  (if (= 2 (length part))
                       (list (first part) (second part) (third parent-part))
                     part)
-                (if (= 2 (length part)) ;; normalize field length to 3
+                (if (= 2 (length part))
                     (list (first part) (second part) t)  
                   part))
-            (if (= 2 (length part)) ;; normalize field length to 3
+            (if (= 2 (length part))
                 (list (first part) (second part) t)
               part))
         (fill-type-field part (rest parents-fields))))))
 
-;; check compatibility between part type and inherited parts type
-(defun compatibility-check (part parts-list) ;; part is !nil and !t
-  (if (null parts-list) ;; base
-      part ;; return true
-    (let ((class-part (first parts-list))) ;; else
+;; compatibility-check/2: checks if part fully is compatible with 
+;; parents-fields
+(defun compatibility-check (part parts-list)
+  (if (null parts-list)
+      part
+    (let ((class-part (first parts-list)))
       
-      (if (eql (first part) (first class-part)) ;; same name -> type check
+      (if (eql (first part) (first class-part))
           (if (null (second class-part))
               part
              
-              (if (or (null (third class-part)) ;; if class-part true/nil
+              (if (or (null (third class-part))
                       (eql (third class-part) t))
                   (if (typep (second class-part) 
-                             (third part)) ;; check value type
+                             (third part))
                       part 
                     (error "Type mismatch for field ~A. ~%~A vs ~A~%"
                            (first part) 
@@ -225,8 +236,10 @@
                     part
                   (error "Type mismatch for field ~A: ~A vs ~A"
                          (first part) (third part) (third class-part)))))
-              (compatibility-check part (rest parts-list)))))) ;; continue
+              (compatibility-check part (rest parts-list))))))
 
+;; get-all-fields/2: gets every field of a class and appends them to the 
+;; fields inherited from parents, removing duplicates
 (defun get-all-fields (parents parts)
   (if parents
       (if (is-class (car parents))
@@ -243,16 +256,17 @@
                                                    temp-parts parent-fields)))
              final-parts)))
           (error "~A is not an existing class" (car parents)))
-      parts)) ;; aggiungere il compatibility check se da errori strani
+      parts))
 
-;; field structure check
+;; is-valid-fields/1: recursevly calls is-valid-field-structure on fields list
 (defun is-valid-fields (fields)
   (if (null fields)
       T 
     (and (is-valid-field-structure (car fields)) 
          (is-valid-fields (cdr fields)))))
 
-;; field structure
+;; field structure/1: filters field by length, normalizing it to 3, and passing
+;; it the result to is-field
 (defun is-valid-field-structure (field)
   (if (= 3 (length field)) ;; (name value type)
       (is-field (first field) (second field) (third field))
@@ -261,6 +275,7 @@
       (if (= 1 (length field)) ;; (name)
           (is-field (first field) nil T) nil))))
 
+;; is-field/3: checks every component of the a field
 (defun is-field (field-name field-value &optional (field-type T))
   (if (symbolp field-name)
       (if (or (symbolp field-type) (eql field-type T))
@@ -272,7 +287,7 @@
     (error "field-name must be a symbol")))
 
 
-;; METHODS
+;; METHODS/N
 (defun methods (&rest methods-specs)
   (if (null methods-specs)
       '()
@@ -284,19 +299,23 @@
       (cons method (apply #'methods (rest methods-specs))))))
 
 
-;; methods utils
+;; is-valid-methods/1: recursevly calls is-valid-method-structure on
+;; methods list 
 (defun is-valid-methods (methods) 
   (if (null methods)
       t
     (and (is-valid-method-structure (car methods))
          (is-valid-methods (cdr methods)))))
 
+;; is-valid-method-structure/1: checks if method passed is a list of 3 
+;; elements, and calls is-methods function on its components
 (defun is-valid-method-structure (method)
-  (if (= 3 (length method)) ;; method is of length 3
+  (if (= 3 (length method))
       (is-method (first method) (second method) (third method))))
 
+;; is-method/3: checks every component of a method
 (defun is-method (name args form)
-  (if (and name args form) ;; every component is not null
+  (if (and name args form)
       (if (symbolp name)
           (if (listp args)
               (if (is-sexp form)
@@ -306,6 +325,7 @@
         (error "method's name must be a symbol"))
     (error "methods must have 3 non-null arguments")))
 
+;; is-sexp/1: checks if argument passed is a symbolic expresson
 (defun is-sexp (f)
   (cond ((null f) t)
         ((atom f) t)
@@ -313,6 +333,8 @@
               (is-sexp (car f))
               (is-sexp (cdr f))))))
 
+;; get-all-methods/2: gets every method of a class and appends them to the 
+;; methods inherited from parents, removing duplicates
 (defun get-all-methods (parents parts)
   (if parents
       (if (is-class (car parents))
@@ -334,7 +356,8 @@
 
 (defun rewrite-method-code (name spec)) 
 
-;; check if instance passed has the method available to call
+;; instance-method-check/2: checks if instance passed has the method 
+;; (referenced by method-name) available to call
 (defun instance-method-check (instance method-name)
   (if (is-instance instance)
       (let* ((class (class-spec (getf instance :class)))
@@ -344,6 +367,8 @@
                  T (error "~A is not defined for ~A" method-name class-name)))
     (error "invalid intstance on method call ~A" method-name)))
 
+;; is-method-listed/2: returns true if name appear as car of one of the 
+;; elements of methods
 (defun is-method-listed (name methods)
   (if (null methods)
       nil
@@ -352,7 +377,7 @@
       (is-method-listed name (rest methods)))))
 
 
-;; MAKE
+;; MAKE/(1 + N)
 (defun make (class-name &rest fields)
   (if (is-class class-name)
       (if (null fields)
@@ -360,12 +385,14 @@
         (make-custom-instance class-name fields))
     (error "~A is not a valid class-name" class-name)))
 
-;; make utils
+;; make-default-instance/1: creates an instance with default value of its class
 (defun make-default-instance (class-name)
   (let* ((class-parts (getf (class-spec class-name) :parts))
          (fields (get-fields class-parts)))
       (list :class class-name :fields (inherit-fields '() (first fields)))))
 
+;; make-custom-instance/3: creates an instance using custom values passed 
+;; during instance definition
 (defun make-custom-instance (class-name fields &optional (result nil))
     (let* ((class-parts (getf (class-spec class-name) :parts))
          (class-fields (get-fields class-parts)))
@@ -381,31 +408,34 @@
                                   (append result (list name value)))
           (error "generic invalid-instance error"))))))
 
+;; is-valid-instance-value/3: checks if custom name and value are compatible
+;; with the field declared in the class 
 (defun is-valid-instance-value (class-fields name value)  
   (if (null class-fields)
       (error "Unknown field: (~A ~A)" name value)
     (let* ((name-class (first (first class-fields)))
            (value-class (second (first class-fields)))
            (type-class (third (first class-fields))))
-      (if (eql name name-class) ;; field found
+      (if (eql name name-class)
           (if (null value)
               (if (eql type-class T)
                   t (error "Cannot assign NIL to type ~A" 
                            type-class))
-            (if (eql type-class T) ;;no type -> check value
+            (if (eql type-class T)
                 (if (or (typep value (type-of value-class))
                         (subtypep (type-of value) (type-of value-class)))
                     t (error "Cannot assign ~A to type ~A" 
                              (type-of value) (type-of value-class)))
               (if (typep value type-class)
                   t (error "Cannot assign ~A to type ~A" 
-                           (type-of value) type-class)))) ;; value not null
+                           (type-of value) type-class))))
         (is-valid-instance-value (rest class-fields) 
                                  name 
-                                 value))))) ;; continue
+                                 value)))))
 
+;; inherit-fields/2: returns every field of a class in the following form:
+;; ((name-1 value-1) ... (name-n value-n))
 (defun inherit-fields (fields default-fields)
-  
   (if (null default-fields)
       fields
     (let* ((field-name (first (first default-fields)))
@@ -415,6 +445,8 @@
         (inherit-fields (append fields (list field-name field-value)) 
                         (rest default-fields))))))
 
+;; is-name-present/2: checks if field-name is presents as car of one of the
+;; elements in fields
 (defun is-name-present (fields field-name)
   (if (null fields)
       NIL
@@ -424,13 +456,13 @@
 
 
 
-;; FIELD
+;; FIELD/2
 (defun field (instance field-name)
   (if(is-instance instance)
       (getf (getf instance :fields) field-name)
     (error "~A is not a valid instance" instance)))
 
-;; FIELD*
+;; FIELD*/(1 + N)
 (defun field* (instance &rest field-names)
   (if (null field-names)
       (error "no attributes to traverse or field not found")
@@ -443,7 +475,7 @@
 
 
 
-;; IS_CLASS
+;; IS_CLASS/1
 (defun is-class (classname)
   (if (symbolp classname)
       (if (gethash classname *classes-specs*) T NIL)
@@ -451,7 +483,7 @@
 
 
 
-;; IS_INSTANCE
+;; IS_INSTANCE/2
 (defun is-instance (value &optional(class-name T))
   (if (equal class-name T)
       (if (and (listp value) (not (null (getf value :class))))
@@ -465,10 +497,14 @@
           NIL) ;;checking if value is a valid instance of class            
       (error "~A is not a valid class" class-name))))
 
+;; is-subclass-of/2: checks if the first parameter identifies a subclass of
+;; the class identified by the second parameter
 (defun is-subclass-of (class-name passed-class-name)
   (let ((parents (get-all-parents class-name)))
     (if (member passed-class-name parents) T NIL)))
 
+;; get-all-parents/1: returns every parent of the class identified 
+;; by class-name
 (defun get-all-parents (class-name)
   (let ((class (class-spec class-name)))
     (if class
@@ -477,9 +513,3 @@
               (append parents (mapcan #'get-all-parents parents))
             nil))
       (error "Class ~A not found." class-name))))
-
-(defun check-parents (parents superclass)
-  (if (null parents)
-      NIL
-    (or (is-subclass-of (car parents) superclass) 
-        (check-parents (cdr parents) superclass))))
