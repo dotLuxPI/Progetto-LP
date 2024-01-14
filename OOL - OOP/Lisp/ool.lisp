@@ -352,9 +352,16 @@
 
 ;; method processing
 (defun process-method (method-name method-spec)
-  (eval (rewrite-method-code method-name method-spec)))
+  (let* ((args (car method-spec))
+         (form (first (cdr method-spec))))
+    (setf (fdefinition method-name) 
+          (lambda (instance &rest args) 
+            (instance-method-check instance method-name)
+             (eval (rewrite-method-code instance form))
+             ))))
 
-(defun rewrite-method-code (name spec)) 
+(defun rewrite-method-code (name spec)
+  (subst name 'this spec)) 
 
 ;; instance-method-check/2: checks if instance passed has the method 
 ;; (referenced by method-name) available to call
@@ -365,7 +372,7 @@
              (methods (first (get-methods (getf class :parts)))))
         (if (is-method-listed method-name methods)
             T (error "~A is not defined for ~A" method-name class-name)))
-      (error "invalid intstance on method call ~A" method-name)))
+      (error "invalid instance on method call ~A" method-name)))
 
 ;; is-method-listed/2: returns true if name appear as car of one of the 
 ;; elements of methods
