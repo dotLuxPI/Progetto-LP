@@ -12,7 +12,7 @@
 
 %%%% TYPE MAP
 
-%%%% get_type/2: returns the type of Value
+%%%% get_type/2: return the type of Value
 get_type(Value, ValueType) :-
     integer(Value),
     ValueType = 'integer',
@@ -73,12 +73,12 @@ is_subtype(atomic, atomic).
 
 %%%% DEF_CLASS PREDICATE
 
-%%%% def_class/2: calls def_class/3
+%%%% def_class/2: call def_class/3
 def_class(Classname, Parents) :-
     def_class(Classname, Parents, []).
 
-%%%% def_class/3: if all checks are ok
-%%%% do inheritance and then asserts the class
+%%%% def_class/3: if all check are ok
+%%%% do inheritance and then assert the class
 def_class(Classname, Parents, Parts) :-
     catch(classname_check(Classname),
           class_already_defined, fail),
@@ -91,7 +91,7 @@ def_class(Classname, Parents, Parts) :-
 
 %%%% DEF_CLASS UTILS
 
-%%%% classname_check/1: checks if the classname is valid
+%%%% classname_check/1: check if the classname is valid
 %%%% and if the class isn't already defined
 classname_check(Classname) :-
     atom(Classname),
@@ -102,7 +102,7 @@ classname_check(Classname) :-
     atom(Classname).
 
 
-%%%% parents_check/1: checks if all the parents exist
+%%%% parents_check/1: check if all the parents exist
 parents_check([]) :- !.
 parents_check([H | T]) :-
     atom(H),
@@ -111,12 +111,12 @@ parents_check([H | T]) :-
     parents_check(T).
 
 
-%%%% parts_check/2 calls parts_check/4
+%%%% parts_check/2 call parts_check/4
 parts_check(Parts, Classname) :-
     parts_check(Parts, Classname, [], []).
 
-%%%% parts_check/4: checks if the parts have a valid structure.
-%%%% if all is ok creates dinamically the defined methods
+%%%% parts_check/4: check if the parts have a valid structure.
+%%%% if all is ok create dinamically the defined methods
 parts_check([], _, _, _) :- !.
 parts_check([H | _T], _Classname, SeenFields, _SeenMethod) :-
     H = field(Key, _Value, _),
@@ -143,7 +143,7 @@ parts_check([H | T], Classname, SeenFields, SeenMethod) :-
     parts_check(T, Classname, SeenFields, [Key | SeenMethod]).
 
 
-%%%% create_method_predicate/2: builds dinamically a predicate
+%%%% create_method_predicate/2: build dinamically a predicate
 %%%% with the specs passed as arguments
 create_method_predicate(method(MethodName, Args, Form),
                         Classname) :-
@@ -155,7 +155,7 @@ create_method_predicate(method(MethodName, Args, Form),
                  NewForm)],
     assertz(Clause).
 
-%%%% pred_check/3: defines all the base checks that all the methods
+%%%% pred_check/3: define all the base check that all the methods
 %%%% must have
 pred_check(Instance, MethodName, Classname) :-
     atom(Instance),
@@ -206,7 +206,7 @@ replace_this_in_args(Instance, [H | T], [H | NewT]) :-
     replace_this_in_args(Instance, T, NewT).
 
 
-%%%% is_field_param/2: checks if a field has a right definition
+%%%% is_field_param/2: check if a field has a right definition
 is_field_param(Field, Key) :-
     Field = field(FieldName, Value, Type),
     atom(FieldName),
@@ -219,14 +219,16 @@ is_field_param(Field, Key) :-
     Key = FieldName.
 
 
-%%%% check_type/2: checks if the Value and the type match
+%%%% check_type/2: check if the Value and the type match
 check_type(Value, Type) :-
     atom(Value),
     is_instance(Value, Type),
     !.
-check_type(instance(InstanceName, _Classname, _ParameterList),
+check_type(instance(InstanceName, Classname, ParameterList),
            Type) :-
-    is_instance(InstanceName, Type),
+    is_instance(instance(InstanceName,
+                        Classname,
+                        ParameterList), Type),
     !.
 check_type(Value, Type) :-
     get_type(Value, ValueType),
@@ -238,7 +240,7 @@ check_type(_Value, _Type) :-
     fail.
 
 
-%%%% is_method/2: checks if a method has the right definition
+%%%% is_method/2: check if a method has the right definition
 is_method(Method, Key) :-
     Method = method(MethodName, Args, Form),
     atom(MethodName),
@@ -247,7 +249,7 @@ is_method(Method, Key) :-
     Key = MethodName.
 
 
-%%%% concat_parts/4: manages the inheritance of the parts for the
+%%%% concat_parts/4: manage the inheritance of the parts for the
 %%%% def_class predicate
 concat_parts(Parts, Parents, Classname, Result) :-
     check_parents_type(Parts, Parents, ModifiedParts),
@@ -255,8 +257,8 @@ concat_parts(Parts, Parents, Classname, Result) :-
     check_parents_parts(Parents, TempResult, Classname, Result).
 
 
-%%%% check_parents_type/3: subpredicate of concatparts for managing
-%%%% the inheritance of the parents type
+%%%% check_parents_type/3: subpredicate of concatparts for manage the
+%%%% inheritance of the parents type
 check_parents_type(Parts, [], Parts) :- !.
 check_parents_type(Parts, [ParentsHead | ParentsTail], ModifiedParts) :-
     findall(P, class(ParentsHead, _, P), ParentsPart),
@@ -264,8 +266,8 @@ check_parents_type(Parts, [ParentsHead | ParentsTail], ModifiedParts) :-
     check_all_parts(Parts, FlattenParentParts, ModifiedParts),
     check_parents_type(ModifiedParts, ParentsTail, ModifiedParts).
 
-%%%% check_all_parts/3: subpredicate of concatparts for managing
-%%%% the inheritance of the parts
+%%%% check_all_parts/3: subpredicate of concatparts for manage the
+%%%% inheritance of the parts
 check_all_parts([], _ParentParts, []) :-
     !.
 check_all_parts([PartsHead | PartsTail], ParentParts,
@@ -302,8 +304,8 @@ check_all_parts([PartsHead | PartsTail], ParentParts,
     !,
     check_all_parts(PartsTail, ParentParts, PartsTail).
 
-%%%% check_parents_parts/4: subpredicate of concat parts for managing
-%%%% the inheritance of the parents parts
+%%%% check_parents_parts/4: subpredicate of concat parts for manage the
+%%%% inheritance of the parents parts
 check_parents_parts([], NewParts, _Classname, NewParts) :- !.
 check_parents_parts([H | T], NewParts, Classname, Result) :-
     findall(Parts, class(H, _, Parts), PartsList),
@@ -311,8 +313,8 @@ check_parents_parts([H | T], NewParts, Classname, Result) :-
     append_parts(NewParts, FlatParts, Classname, UpdatedNewParts),
     check_parents_parts(T, UpdatedNewParts, Classname, Result).
 
-%%%% append_parts/4: subpredicate of concat parts for managing
-%%%% the inheritance of the parts
+%%%% append_parts/4: subpredicate of concat parts for manage the
+%%%% inheritance of the parts
 append_parts(NewParts, [], _Classname, NewParts) :-
     !.
 append_parts(NewParts,
@@ -379,11 +381,11 @@ append_parts(NewParts,
 
 
 %%%% MAKE PREDICATE
-%%%% make/2: calls the make/3
+%%%% make/2: call the make/3
 make(InstanceName, Classname) :-
     make(InstanceName, Classname, []).
 %%%% make/3 first case: if InstanceName, Classname and
-%%%% ParameterList are valid asserts the instance
+%%%% ParameterList are valid assert the instance
 make(InstanceName, Classname, ParameterList) :-
     atom(Classname),
     clause(class(Classname, _, _), _),
@@ -395,8 +397,8 @@ make(InstanceName, Classname, ParameterList) :-
     concat_parameter(ParameterList, Classname, FinalParameter),
     assertz(instance(InstanceName, Classname, FinalParameter)),
     !.
-%%%% make/3 second case: does the same check of the make first case
-%%%% but instead of asserting the instance it creates an anonymous var
+%%%% make/3 second case: do the same check of the make first case but
+%%%% instead of assert the instance create an anonymous var
 make(InstanceName, Classname, ParameterList) :-
     var(InstanceName),
     atom(Classname),
@@ -408,7 +410,7 @@ make(InstanceName, Classname, ParameterList) :-
     InstanceName = instance('anonymous', Classname, FinalParameter),
     !.
 %%%% make/3 third case: given a make with some parameter not defined,
-%%%% returns the value of that parameter from the existing instance
+%%%% return the value of that parameter from the existing instance
 make(InstanceName, Classname, ParameterList) :-
     bagof(instance(InstanceName, Classname, ParameterList),
           instance(InstanceName, Classname, ParameterList),
@@ -418,7 +420,7 @@ make(InstanceName, Classname, ParameterList) :-
 
 %%%% MAKE UTILS
 
-%%%% is_valid_instancename/1: checks if the instancename is valid
+%%%% is_valid_instancename/1: check if the instancename is valid
 is_valid_instancename(InstanceName) :-
     atom(InstanceName),
     clause(instance(InstanceName, _, _), _),
@@ -427,7 +429,7 @@ is_valid_instancename(InstanceName) :-
 is_valid_instancename(InstanceName) :-
     atom(InstanceName).
 
-%%%% is_parameter/1: checks if the parameter structure is valid
+%%%% is_parameter/1: check if the parameter structure is valid
 is_parameter([]) :- !.
 is_parameter([H | T]) :-
     is_parameter_check(H),
@@ -436,8 +438,8 @@ is_parameter([H | T]) :-
 is_parameter_check(Field = _Value) :-
     atom(Field).
 
-%%%% is_valid_parameter_list/2: checks if the parameter list is valid
-%%%% and if the field exist in the class and if the type is matching
+%%%% is_valid_parameter_list/2: check if the parameter list is valid and
+%%%% if the field exist in the class and if the type is matching
 is_valid_parameter_list([], _) :-
     !.
 is_valid_parameter_list([Field = Value | T], Classname) :-
@@ -455,15 +457,15 @@ is_valid_parameter_list([Field = _Value | T], Classname) :-
     is_valid_parameter_list(T, Classname).
 
 
-%%%% concat_parameter/3: manages the inheritance from class to instance
+%%%% concat_parameter/3: manage the inheritance from class to instance
 concat_parameter(ParameterList, Classname, FinalParameter) :-
     findall(class(Classname, Parents, Parts),
             class(Classname, Parents, Parts),
             [class(Classname, Parents, Parts) | _T]),
     append_parameter(ParameterList, Parts, FinalParameter).
 
-%%%% append_parameter/3: subpredicate of concat_parameter for managing
-%%%% the inheritance from class to instance
+%%%% append_parameter/3: subpredicate of concat_parameter for manage the
+%%%% inheritance from class to instance
 append_parameter(ParameterList, [], ParameterList) :-
     !.
 append_parameter(ParameterList,
@@ -517,16 +519,40 @@ is_class(Classname) :-
 is_instance(Value) :-
     atom(Value),
     is_instance(Value, _).
-is_instance(Value) :-
-    Value = instance(_, _, _),
-    clause(Value, _),
+is_instance(instance(InstanceName,
+                     Classname,
+                     ParameterList)) :-
+    clause(instance(InstanceName,
+                    Classname,
+                    ParameterList), _),
     !.
 is_instance(Value, Classname) :-
+    atom(Value),
     clause(instance(Value, Classname, _), _),
     !.
+is_instance(instance(InstanceName,
+                     Classname,
+                     ParameterList),
+            Classname) :-
+   clause(instance(InstanceName,
+                   Classname,
+                   ParameterList), _),
+   !.
 is_instance(Value, Classname) :-
+    atom(Value),
     findall(Class,
             instance(Value, Class, _),
+            [H | _]),
+    has_parents(H, Classname),
+    !.
+is_instance(instance(InstanceName,
+                     Class,
+                     ParameterList),
+            Classname) :-
+    findall(Class,
+            instance(InstanceName,
+                     Class,
+                     ParameterList),
             [H | _]),
     has_parents(H, Classname),
     !.
@@ -534,7 +560,7 @@ is_instance(Value, Classname) :-
 
 %%%% IS_INSTANCE UTILS
 
-%%%% has_parents/2: checks if the class has superclass as parents, or
+%%%% has_parents/2: check if the class has superclass as parents, or
 %%%% grandparents, ecc...
 has_parents(Class, SuperClass) :-
     findall(Parents, class(Class, Parents, _), P),
@@ -542,7 +568,7 @@ has_parents(Class, SuperClass) :-
     get_parents(FlatParents, AllParents),
     memberchk(SuperClass, AllParents).
 
-%%%% get_parents/2: gets all parents, grandparents ecc..., of a given
+%%%% get_parents/2: get all parents, grandparents ecc..., of a given in
 %%%% input class list
 get_parents([], []).
 get_parents([H | T], AllParents) :-
@@ -557,7 +583,7 @@ get_parents([H | T], AllParents) :-
 
 %%%% INST PREDICATE
 
-%%%% inst/2: gets the instance from a instance name
+%%%% inst/2: get the instance from a instance name
 inst(InstanceName, H) :-
     bagof(instance(InstanceName, Classname, ParameterList),
           instance(InstanceName, Classname, ParameterList),
@@ -571,7 +597,7 @@ inst(_InstanceName, _Instance) :-
 
 %%%% FIELD PREDICATE
 
-%%%% gets the value of a field in the Instance
+%%%% get the value of a field in the Instance
 field(Instance, FieldName, Result) :-
     atom(Instance),
     inst(Instance, Inst),
@@ -587,7 +613,7 @@ field(instance(_InstanceName, _Classname, ParameterList),
 
 %%%% FIELDX PREDICATE
 
-%%%% gets the value of the last field in FieldNames passing through
+%%%% get the value of the last field in FieldNames, can pass through
 %%%% instance
 fieldx(Instance, FieldNames, Result) :-
     atom(Instance),
