@@ -42,6 +42,9 @@
                                                parents
                                                class-methods)))
                           (progn
+
+                            (process-all-methods final-methods)
+
                             (add-class-spec 
                              classname (list 
                                         :classname classname 
@@ -315,15 +318,15 @@
 
 ;; is-method/3: checks every component of a method
 (defun is-method (name args form)
-  (if (and name args form)
+  (if (and name form)
       (if (symbolp name)
           (if (listp args)
               (if (is-sexp form)
                   t 
-                  (error "~A in ~A is not a valid expression" form name))
-              (error "~A args must be a list of standard parameter" name))
-          (error "method's name must be a symbol"))
-      (error "methods must have 3 non-null arguments")))
+                (error "~A in ~A is not a valid expression" form name))
+            (error "~A args must be a list of standard parameter" name))
+        (error "method's name must be a symbol"))
+    (error "methods must have 3 non-null arguments")))
 
 ;; is-sexp/1: checks if argument passed is a symbolic expresson
 (defun is-sexp (f)
@@ -339,7 +342,8 @@
   (if parents
       (if (is-class (car parents))
           (let ((parent-methods (first (get-methods 
-					(getf (class-spec (car parents)) :parts)))))
+					(getf (class-spec (car parents)) 
+                                              :parts)))))
             (let ((temp-methods (remove-duplicates 
                                  (append 
                                   (get-all-methods (rest parents) parts))
@@ -347,26 +351,34 @@
               (let ((final-parts (concat-parts
                                   temp-methods parent-methods)))
                 final-parts)))
-          (error "~A is not an existing class" (car parents))) ;; code
-      parts))
+        (error "~A is not an existing class" (car parents))) ;; code
+    parts))
 
 ;; method processing
 (defun process-method (method-name method-spec)
   (let* ((args (car method-spec))
          (form (first (cdr method-spec))))
+
     (setf (fdefinition method-name) 
           (lambda (instance &rest args) 
             (instance-method-check instance method-name)
-             (eval (rewrite-method-code instance form))
-             ))))
+            (eval (rewrite-method-code instance args form))))))
+
 
 ;; substitute this with instance
-(defun rewrite-method-code (instance spec)
-  (subst (substitute-this instance) 'this spec))
+(defun rewrite-method-code (instance args spec)
+  (replace-with-values args (subst (substitute-this instance) 'this spec)))
 
 (defun substitute-this (instance)
   `(quote ,instance)
 )
+
+(defun replace-with-values (args spec)
+  (if (null args)
+      spec
+    (progn 
+      (subst (second args) (first args) spec) 
+      (replace-with-value (rest (rest args)) spec))))
 
 ;; instance-method-check/2: checks if instance passed has the method 
 ;; (referenced by method-name) available to call
@@ -387,6 +399,17 @@
       (if (eql name (caar methods))
           T 
 	  (is-method-listed name (rest methods)))))
+
+(defun process-all-methods (methods)
+
+  (if (null methods)
+      NIL
+    (let* ((method (car methods))
+           (name (car method))
+           (spec (cdr method)))
+      (progn 
+        (process-method name spec)
+        (process-all-methods (rest methods))))))
 
 
 ;; MAKE/(1 + N)
