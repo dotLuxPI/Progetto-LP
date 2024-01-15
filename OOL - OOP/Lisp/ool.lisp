@@ -360,8 +360,13 @@
              (eval (rewrite-method-code instance form))
              ))))
 
-(defun rewrite-method-code (name spec)
-  (subst name 'this spec)) 
+;; substitute this with instance
+(defun rewrite-method-code (instance spec)
+  (subst (substitute-this instance) 'this spec))
+
+(defun substitute-this (instance)
+  `(quote ,instance)
+)
 
 ;; instance-method-check/2: checks if instance passed has the method 
 ;; (referenced by method-name) available to call
@@ -520,3 +525,4 @@
               (append parents (mapcan #'get-all-parents parents))
               nil))
 	(error "Class ~A not found." class-name))))
+
