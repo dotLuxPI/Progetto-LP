@@ -362,23 +362,17 @@
     (setf (fdefinition method-name) 
           (lambda (instance &rest args) 
             (instance-method-check instance method-name)
-            (eval (rewrite-method-code instance args form))))))
-
+            (let* ((parts (getf (class-spec (getf instance :class)) :parts))
+                   (new-form (third (get-method-listed method-name (first (get-methods parts))))))
+            (eval (rewrite-method-code instance args new-form)))))))
 
 ;; substitute this with instance
 (defun rewrite-method-code (instance args spec)
-  (replace-with-values args (subst (substitute-this instance) 'this spec)))
+  (subst (substitute-this instance) 'this)
 
 (defun substitute-this (instance)
   `(quote ,instance)
 )
-
-(defun replace-with-values (args spec)
-  (if (null args)
-      spec
-    (progn 
-      (subst (second args) (first args) spec) 
-      (replace-with-value (rest (rest args)) spec))))
 
 ;; instance-method-check/2: checks if instance passed has the method 
 ;; (referenced by method-name) available to call
@@ -399,6 +393,13 @@
       (if (eql name (caar methods))
           T 
 	  (is-method-listed name (rest methods)))))
+
+(defun get-method-listed (name methods)
+  (if (null methods)
+      nil
+    (if (eql name (caar methods))
+        (car methods)
+      (is-method-listed name (rest methods)))))
 
 (defun process-all-methods (methods)
 
