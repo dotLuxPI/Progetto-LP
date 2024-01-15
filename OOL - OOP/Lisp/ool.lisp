@@ -1,3 +1,4 @@
+
 ;;;; Perego Luca 894448
 ;;;; Magliani Andrea 894395
 ;;;; Picco Nicolas 894588
@@ -354,21 +355,29 @@
         (error "~A is not an existing class" (car parents))) ;; code
     parts))
 
+
 ;; method processing
 (defun process-method (method-name method-spec)
-  (let* ((args (car method-spec))
-         (form (first (cdr method-spec))))
+  (setf (fdefinition method-name)
+        (lambda (instance &rest args)
+          (instance-method-check instance method-name)
+          (let* ((class (class-spec (getf instance :class)))
+                 (parts (getf class :parts))
+                 (method (get-method-listed method-name 
+                                            (first (get-methods parts))))
+                 (actual-form (third method)))
+            
+            (format t "form: ~A~%" actual-form)
+            (format t "formal args: ~A~%" (second method))
+            (format t "actual args: ~A~%~%" args)
+            
+            (eval (rewrite-method-code instance actual-form))))))
 
-    (setf (fdefinition method-name) 
-          (lambda (instance &rest args) 
-            (instance-method-check instance method-name)
-            (let* ((parts (getf (class-spec (getf instance :class)) :parts))
-                   (new-form (third (get-method-listed method-name (first (get-methods parts))))))
-            (eval (rewrite-method-code instance args new-form)))))))
+
 
 ;; substitute this with instance
-(defun rewrite-method-code (instance args spec)
-  (subst (substitute-this instance) 'this)
+(defun rewrite-method-code (instance spec)
+  (subst (substitute-this instance) 'this spec))
 
 (defun substitute-this (instance)
   `(quote ,instance)
@@ -549,4 +558,3 @@
               (append parents (mapcan #'get-all-parents parents))
               nil))
 	(error "Class ~A not found." class-name))))
-
