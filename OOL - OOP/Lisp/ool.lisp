@@ -103,7 +103,7 @@
 (defun all-listp (list)
   (cond 
    ((null list) T)
-   ((listp (first list)) (is-all-lists (rest list)))))
+   ((listp (first list)) (all-listp (rest list)))))
 
 ;; parts-check/2: calls checking function on fields and methods
 (defun parts-check (fields methods)
@@ -371,29 +371,31 @@
 ;; method processing
 (defun process-method (method-name method-spec)
   (setf (fdefinition method-name)
-        (lambda (instance &rest args)
-          (instance-method-check instance method-name)
-          (let* ((class (class-spec (getf instance :class)))
-                 (parts (getf class :parts))
-                 (method (get-method-listed method-name 
-                                            (first (get-methods parts))))
-                 (actual-form (third method)))
-            
-            (format t "form: ~A~%" actual-form)
-            (format t "formal args: ~A~%" (second method))
-            (format t "actual args: ~A~%~%" args)
-            
-            (eval (rewrite-method-code instance actual-form))))))
+        (lambda (this &rest args)
+          (let* ((method-body 
+                  (get-method method-name 
+                              (first (get-methods
+                                      (getf (class-spec 
+                                             (getf this :class)) 
+                                            :parts)))))
+                 (lambda-method-body 
+                  (list 'lambda (append (list 'this) args)
+                        (method-body))
+                  (apply (coerce lambda-method-body 'function)
+                         (append (list this) args)))))))) 
 
+;; format the lambda
+(defun rewrite-method-code (method-name method-spec)
+  (print (list 'lambda (append (list 'this) 
+                        (car method-spec))
+                          method-spec)))
 
-
-;; substitute this with instance
-(defun rewrite-method-code (instance spec)
-  (subst (substitute-this instance) 'this spec))
-
-(defun substitute-this (instance)
-  `(quote ,instance)
-)
+;; get a method given the method name
+(defun get-method (method-name all-methods)
+  (cond ((null all-methods) nil)
+        ((eql (car (car all-methods)) method-name)
+         (car all-methods))
+        (t (get-method method-name (rest all-methods)))))
 
 ;; instance-method-check/2: checks if instance passed has the method 
 ;; (referenced by method-name) available to call
