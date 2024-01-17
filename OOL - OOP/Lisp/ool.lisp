@@ -26,51 +26,54 @@
 
 
 
+
 ;; DEF_CLASS/3
 (defun def-class (classname &optional (parents '()) &rest parts)
+
   (if (symbolp classname) 
       (if (not (gethash classname *classes-specs*))    
           (if (or (listp parents) (null parents))
               (if (is-class-list parents)
-                  (let* ((class-fields (concat-all 'fields parts))
-                         (class-methods (concat-all 'methods parts)))
-                    (if (parts-check class-fields class-methods)
-                        (let* ((final-fields 
-				(fields-validation 
-                                 (get-all-fields parents class-fields)
-                                 NIL))
-                               (final-methods (get-all-methods
-                                               parents
-                                               class-methods)))
-                          (progn
+                  (if (and (all-listp parts) 
+                           (preliminar-parts-check parts))
+                      (let* ((class-fields (concat-all 'fields parts))
+                             (class-methods (concat-all 'methods parts)))
+                        (if (parts-check class-fields class-methods)
+                            (let* ((final-fields 
+                                    (fields-validation
+                                     (get-all-fields parents 
+                                                     class-fields)
+                                     NIL))
+                                   (final-methods (get-all-methods
+                                                   parents
+                                                   class-methods)))
+                              (progn
 
-                            (process-all-methods final-methods)
-
-                            (add-class-spec 
-                             classname (list 
-                                        :classname classname 
-                                        :parents parents 
-                                        :parts (append 
-                                                (list 'FIELDS 
-                                                      final-fields) 
-                                                (list 'METHODS 
-                                                      final-methods))))
-                            classname))
-			(error "parts must be a list of methods and fields")))
-                  (error "parents must be a list of existing classes")) 
-              (error "parents must be a list of classes")) 
-          (error "classname already exists")) 
-      (error "classname must be a symbol")))
+                                  (process-all-methods final-methods)
+                                
+                                (add-class-spec 
+                                 classname (list 
+                                            :classname classname 
+                                            :parents parents 
+                                            :parts (append 
+                                                    (list 'FIELDS 
+                                                          final-fields) 
+                                                    (list 'METHODS 
+                                                          final-methods))))
+                                classname))
+                          (error "parts must be a list of ~A"
+                                 "methods and fields")))
+                    (error "parts must be a list of methods and fields"))
+                (error "parents must be a list of existing classes")) 
+            (error "parents must be a list of classes")) 
+        (error "classname already exists")) 
+    (error "classname must be a symbol")))
 
 ;; is-class-list 
 (defun is-class-list (parents)
   (if (null parents)
       t
       (and (is-class (car parents)) (is-class-list (cdr parents)))))
-
-;; to-list/1: casts the parameter passed to type list
-(defun to-list (x)
-  (if (listp x) x (list x)))
 
 ;; concat-all/2: gets every field or method 
 ;; (depends on delimiter value)
@@ -82,6 +85,25 @@
            (rest (first parts)) 
            (concat-all delimiter (rest parts))) ;;concat
 	  (concat-all delimiter (rest parts))))) ;; continue
+
+
+;; preliminar-parts-check
+(defun preliminar-parts-check (parts)
+  (if (null parts)
+      T
+    (let ((part (first parts)))
+      (if (or (eql (first part) 'fields)
+              (eql (first part) 'methods)
+              (null part))
+          (if (all-listp (rest part))
+              (preliminar-parts-check (rest parts))
+            nil)
+        nil))))
+
+(defun all-listp (list)
+  (cond 
+   ((null list) T)
+   ((listp (first list)) (is-all-lists (rest list)))))
 
 ;; parts-check/2: calls checking function on fields and methods
 (defun parts-check (fields methods)
@@ -108,19 +130,6 @@
 	(if (null end)
             (rest parts)
             (subseq parts (1+ start) end)))))
-
-
-
-;; FIELDS/N
-(defun fields (&rest field-specs)
-  (if (null field-specs)
-      '()
-      (let* ((spec (first field-specs))
-             (name (first spec))
-             (value (second spec))
-             (f-type (if (null (cddr spec)) 'T (car (cddr spec))))
-             (field (list name value f-type)))
-	(cons field (apply #'fields (rest field-specs))))))
 
 
 ;; concat-parts/2: concatenates parts with parents-parts, giving priority
@@ -221,26 +230,26 @@
 (defun compatibility-check (part parts-list)
   (if (null parts-list)
       part
-      (let ((class-part (first parts-list)))
-	
-	(if (eql (first part) (first class-part))
-            (if (null (second class-part))
-		part
-		
-		(if (or (null (third class-part))
-			(eql (third class-part) t))
-                    (if (typep (second class-part) 
-                               (third part))
-			part 
-			(error "Type mismatch for field ~A. ~%~A vs ~A~%"
-                               (first part) 
-                               (third part) 
-                               (type-of (second class-part))))
-                    (if (eql (third part) (third class-part))
-			part
-			(error "Type mismatch for field ~A: ~A vs ~A"
-                               (first part) (third part) (third class-part)))))
-            (compatibility-check part (rest parts-list))))))
+    (let ((class-part (first parts-list)))
+      
+      (if (eql (first part) (first class-part))
+          (if (null (second class-part))
+              part
+            
+            (if (or (null (third class-part))
+                    (eql (third class-part) t))
+                (if (typep (second class-part) 
+                           (third part))
+                    part 
+                  (error "Type mismatch for field ~A. ~%~A vs ~A~%"
+                         (first part) 
+                         (third part) 
+                         (type-of (second class-part))))
+              (if (eql (third part) (third class-part))
+                  part
+                (error "Type mismatch for field ~A: ~A vs ~A"
+                       (first part) (third part) (third class-part)))))
+        (compatibility-check part (rest parts-list))))))
 
 ;; get-all-fields/2: gets every field of a class and appends them to the 
 ;; fields inherited from parents, removing duplicates
@@ -290,18 +299,21 @@
           (error "field-type must be a symbol"))
       (error "field-name must be a symbol")))
 
+(defun rewrite-fields (fields)
 
-;; METHODS/N
-(defun methods (&rest methods-specs)
-  (if (null methods-specs)
-      '()
-      (let* ((spec (first methods-specs))
-             (name (first spec))
-             (args (second spec))
-             (form (third spec))
-             (method (list name args form)))
-	(cons method (apply #'methods (rest methods-specs))))))
+  (print (second (first fields)))
 
+  (if (null fields)
+      nil
+    (cond 
+     ((ignore-errors (eval (second (first fields))))
+      (if (is-instance(eval (second (first fields))))
+          (cons (eval-field (first fields)) (rewrite-fields (rest fields)))
+        (cons (first fields) (rewrite-fields (rest fields)))))
+     (t (cons (first fields) (rewrite-fields (rest fields)))))))
+
+(defun eval-field (field)
+  (list (first field) (eval (second field)) (third field)))
 
 ;; is-valid-methods/1: recursevly calls is-valid-method-structure on
 ;; methods list 
