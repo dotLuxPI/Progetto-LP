@@ -85,11 +85,42 @@ def_class(Classname, Parents, Parts) :-
     parents_check(Parents),
     parts_check(Parts, Classname),
     concat_parts(Parts, Parents, Classname, Result),
-    assertz(class(Classname, Parents, Result)).
+    rewrite_instance(Result, FinalResult),
+    assertz(class(Classname, Parents, FinalResult)),
+    format("~w succesfully created!", [Classname]).
 
 
 
 %%%% DEF_CLASS UTILS
+
+%%%% rewrite_instance/2: rewrite the instance from obj to
+%%%% name only (reference)
+rewrite_instance([], []) :- !.
+rewrite_instance([field(Key,
+                        instance(InstanceName, _, _))
+                  | Rest],
+                 [field(Key, InstanceName) | NewRest]) :-
+    rewrite_instance(Rest, NewRest),
+    !.
+rewrite_instance([field(Key,
+                        instance(InstanceName, _, _),
+                        Type)
+                 | Rest],
+                 [field(Key, InstanceName, Type)
+                 | NewRest]) :-
+    rewrite_instance(Rest, NewRest),
+    !.
+rewrite_instance([method(MethodName, Args, Form)
+                 | Rest],
+                 [method(MethodName, Args, Form)
+                 | NewRest]) :-
+    rewrite_instance(Rest, NewRest),
+    !.
+rewrite_instance([Field | Rest], [Field | NewRest]) :-
+    rewrite_instance(Rest, NewRest),
+    !.
+
+
 
 %%%% classname_check/1: check if the classname is valid
 %%%% and if the class isn't already defined
@@ -167,7 +198,7 @@ pred_check(Instance, MethodName, Classname) :-
     C = Classname,
     memberchk(method(MethodName, _, _), F).
 pred_check(instance(InstanceName, Classname, ParameterList),
-           MethodName) :-
+           MethodName, Classname) :-
     is_instance(instance(InstanceName, Classname, ParameterList)),
     bagof(class(Classname, Parents, Fields),
           class(Classname, Parents, Fields),
@@ -384,18 +415,34 @@ append_parts(NewParts,
 %%%% make/2: call the make/3
 make(InstanceName, Classname) :-
     make(InstanceName, Classname, []).
-%%%% make/3 first case: if InstanceName, Classname and
-%%%% ParameterList are valid assert the instance
+%%%% make/3 first case (the instance doesn't exist): if InstanceName,
+%%%% Classname and ParameterList are valid assert the instance
 make(InstanceName, Classname, ParameterList) :-
+    atom(InstanceName),
     atom(Classname),
     clause(class(Classname, _, _), _),
     is_list(ParameterList),
-    catch(is_valid_instancename(InstanceName),
-          instance_found, fail),
     is_parameter(ParameterList),
     is_valid_parameter_list(ParameterList, Classname),
     concat_parameter(ParameterList, Classname, FinalParameter),
-    assertz(instance(InstanceName, Classname, FinalParameter)),
+    \+ clause(instance(InstanceName, _, _), _),
+    rewrite_par_instance(FinalParameter, FixedParameter),
+    assertz(instance(InstanceName, Classname, FixedParameter)),
+    !.
+%%%% make/3 first case (the instance exist): if InstanceName, Classname
+%%%% and ParameterList are valid assert the instance
+make(InstanceName, Classname, ParameterList) :-
+    atom(InstanceName),
+    atom(Classname),
+    clause(class(Classname, _, _), _),
+    is_list(ParameterList),
+    is_parameter(ParameterList),
+    is_valid_parameter_list(ParameterList, Classname),
+    concat_parameter(ParameterList, Classname, FinalParameter),
+    clause(instance(InstanceName, _, _), _),
+    retractall(instance(InstanceName, _, _)),
+    rewrite_par_instance(FinalParameter, FixedParameter),
+    assertz(instance(InstanceName, Classname, FixedParameter)),
     !.
 %%%% make/3 second case: do the same check of the make first case but
 %%%% instead of assert the instance create an anonymous var
@@ -420,14 +467,18 @@ make(InstanceName, Classname, ParameterList) :-
 
 %%%% MAKE UTILS
 
-%%%% is_valid_instancename/1: check if the instancename is valid
-is_valid_instancename(InstanceName) :-
-    atom(InstanceName),
-    clause(instance(InstanceName, _, _), _),
-    write('The instance already exists!'),
-    throw(instance_found).
-is_valid_instancename(InstanceName) :-
-    atom(InstanceName).
+%%%% rewrite_par_instance/2: return a fixed parameters with only
+%%%% instance name (reference)
+rewrite_par_instance([], []) :- !.
+rewrite_par_instance([Field = instance(InstanceName, _, _) |
+                      Rest],
+                     [Field = InstanceName | NewRest]) :-
+    rewrite_par_instance(Rest, NewRest),
+    !.
+rewrite_par_instance([Field = Value | Rest],
+                     [Field = Value | NewRest]) :-
+    rewrite_par_instance(Rest, NewRest).
+
 
 %%%% is_parameter/1: check if the parameter structure is valid
 is_parameter([]) :- !.
@@ -585,13 +636,15 @@ get_parents([H | T], AllParents) :-
 
 %%%% inst/2: get the instance from a instance name
 inst(InstanceName, H) :-
+    atom(InstanceName),
     bagof(instance(InstanceName, Classname, ParameterList),
           instance(InstanceName, Classname, ParameterList),
           [H | _T]),
     !.
 inst(_InstanceName, _Instance) :-
     write("Instance not found!"),
-    fail.
+    fail,
+    !.
 
 
 
@@ -601,13 +654,25 @@ inst(_InstanceName, _Instance) :-
 field(Instance, FieldName, Result) :-
     atom(Instance),
     inst(Instance, Inst),
-    field(Inst, FieldName, Result).
+    field(Inst, FieldName, Result),
+    !.
 field(instance(_InstanceName, _Classname, ParameterList),
       FieldName,
       Result) :-
     atom(FieldName),
     memberchk(FieldName = Value, ParameterList),
-    Result = Value.
+    is_instance(Value),
+    atom(Value),
+    inst(Value, CompleteValue),
+    Result = CompleteValue,
+    !.
+field(instance(_InstanceName, _Classname, ParameterList),
+      FieldName,
+      Result) :-
+    atom(FieldName),
+    memberchk(FieldName = Value, ParameterList),
+    Result = Value,
+    !.
 
 
 
