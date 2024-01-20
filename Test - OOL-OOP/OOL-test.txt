@@ -1,16 +1,12 @@
-DEF-CLASS (NO METHODS)
-
-(def-class 'person nil '(fields (name "eve" string) (age 21))) 
-(def-class 'student '(person) '(fields (name "Eva Lu Ator") (university "Berkeley" string)))
-(def-class 'p-complex nil '(fields (:phi 0.0 real) (:rho 1.0 real)))
-
-DEF-CLASS (FULL)
+DEF-CLASS
 
 (def-class 'person nil '(fields (name "eve" string) (age 21)))
 
 (def-class 'student '(person) '(fields (name "Eva Lu Ator") (university "Berkeley" string)) '(methods (talk (&optional (out *standard-output*)) (format out "My name is ~A~%My age is ~D~%" (field this 'name) (field this 'age)))))
 
-?- complex -?
+(def-class 'p-complex nil '(fields (:phi 0.0 real) (:rho 1.0 real)) '(methods (sum (pcn) (let ((r1 (field this :rho)) (phi1 (field this :phi)) (r2 (field pcn :rho)) (phi2 (field pcn :phi))) (format t "phi sum: ~A~%rho sum: ~A~%" (+ phi1 phi2) (+ r1 r2))))))
+
+(def-class 'studente-bicocca '(student) '(methods (talk () (format t "Mi chiamo ~A, e studio alla Bicocca~%" (field this 'name)))) '(fields (university "UNIMIB")))
 
 MAKE
 

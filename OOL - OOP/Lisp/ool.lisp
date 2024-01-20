@@ -341,6 +341,10 @@
         (error "method's name must be a symbol"))
     (error "methods must have 3 non-null arguments")))
 
+(defun is-keyword (p)
+  (if (keywordp p)
+      t nil))
+
 ;; is-sexp/1: checks if argument passed is a symbolic expresson
 (defun is-sexp (f)
   (cond ((null f) t)
@@ -370,14 +374,19 @@
 
 ;; method processing
 (defun process-method (method-name method-spec)
+  (if (keywordp method-name)
+      (do-processing (read-from-string (symbol-name method-name)) method-spec)
+    (do-processing method-name method-spec)))
+
+(defun do-processing (method-name method-spec)
   (setf (fdefinition method-name)
         (lambda (this &rest args)
           (let* ((method-body 
                   (get-method method-name 
-                              (first (get-methods
-                                      (getf (class-spec 
-                                             (getf this :class)) 
-                                            :parts))))))
+                              (first (get-methods(getf (class-spec 
+                                                        (getf this 
+                                                              :class)) 
+                                                       :parts))))))
             (apply (eval (rewrite-method-code method-name (rest method-body)))
                    this args)))))
 
