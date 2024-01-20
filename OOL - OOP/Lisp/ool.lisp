@@ -377,18 +377,15 @@
                               (first (get-methods
                                       (getf (class-spec 
                                              (getf this :class)) 
-                                            :parts)))))
-                 (lambda-method-body 
-                  (list 'lambda (append (list 'this) args)
-                        (method-body))
-                  (apply (coerce lambda-method-body 'function)
-                         (append (list this) args)))))))) 
+                                            :parts))))))
+            (apply (eval (rewrite-method-code method-name (rest method-body)))
+                   this args)))))
 
 ;; format the lambda
 (defun rewrite-method-code (method-name method-spec)
-  (print (list 'lambda (append (list 'this) 
+  (list 'lambda (append (list 'this) 
                         (car method-spec))
-                          method-spec)))
+        (cadr method-spec)))
 
 ;; get a method given the method name
 (defun get-method (method-name all-methods)
