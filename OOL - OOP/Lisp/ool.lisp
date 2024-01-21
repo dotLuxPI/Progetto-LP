@@ -41,8 +41,9 @@
                         (if (parts-check class-fields class-methods)
                             (let* ((final-fields 
                                     (fields-validation
-                                     (get-all-fields parents 
-                                                     class-fields)
+                                     (rewrite-fields 
+                                      (get-all-fields parents 
+                                                      class-fields))
                                      NIL))
                                    (final-methods (get-all-methods
                                                    parents
@@ -231,7 +232,6 @@
   (if (null parts-list)
       part
     (let ((class-part (first parts-list)))
-      
       (if (eql (first part) (first class-part))
           (if (null (second class-part))
               part
@@ -300,9 +300,6 @@
       (error "field-name must be a symbol")))
 
 (defun rewrite-fields (fields)
-
-  (print (second (first fields)))
-
   (if (null fields)
       nil
     (cond 
@@ -362,8 +359,9 @@
 					(getf (class-spec (car parents)) 
                                               :parts)))))
             (let ((temp-methods (remove-duplicates 
-                                 (append 
-                                  (get-all-methods (rest parents) parts))
+                                 (remove-keyword 
+                                  (append 
+                                   (get-all-methods (rest parents) parts)))
                                  :test #'equal :key #'car)))
               (let ((final-parts (concat-parts
                                   temp-methods parent-methods)))
@@ -371,6 +369,16 @@
         (error "~A is not an existing class" (car parents))) ;; code
     parts))
 
+;; remove-keyword/1: returns the method list without keywords
+(defun remove-keyword (methods)
+  (if methods
+      (let ((method (car methods)))
+        (cons (if (keywordp (car method))
+                  (list (read-from-string (symbol-name (car method)))
+                        (cadr method) (caddr method))
+                method)
+              (remove-keyword (cdr methods))))
+    nil))
 
 ;; method processing
 (defun process-method (method-name method-spec)
