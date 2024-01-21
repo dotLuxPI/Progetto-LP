@@ -51,14 +51,15 @@
                                   (process-all-methods final-methods)
                                 
                                 (add-class-spec 
-                                 classname (list 
-                                            :classname classname 
-                                            :parents parents 
-                                            :parts (append 
-                                                    (list 'FIELDS 
-                                                          final-fields) 
-                                                    (list 'METHODS 
-                                                          final-methods))))
+                                 classname 
+                                 (list 
+                                  :classname classname 
+                                  :parents parents 
+                                  :parts (append 
+                                          (list 'FIELDS 
+                                                final-fields) 
+                                          (list 'METHODS 
+                                                final-methods))))
                                 classname))
                           (error "parts must be a list of ~A"
                                  "methods and fields")))
@@ -131,8 +132,9 @@
             (subseq parts (1+ start) end)))))
 
 
-;; concat-parts/2: concatenates fields with parents-fields, giving priority
-;; to the class fields and then parents-fields following the list order
+;; concat-parts/2: concatenates fields with parents-fields, giving
+;; priority to the class fields and then parents-fields following
+;; the list order
 (defun concat-parts (parts parents-parts)
   (if (null parts)
       parents-parts
@@ -160,8 +162,8 @@
               (fields-validation (rest fields) parents-fields)))))
 
 ;; fill-in-field/2: adds missing field components with inheritance 
-;; (checking if fields are compatible with their parent-classes) and normalize
-;; field to the 3-parameter-form: (field name value type)
+;; (checking if fields are compatible with their parent-classes) and 
+;; normalize field to the 3-parameter-form: (field name value type)
 (defun fill-in-field (part parents-fields) 
 
   (cond
@@ -192,8 +194,8 @@
       part 
       parents-fields))))
 
-;; manage-instance-type/2: return the correct typing for the specific case of
-;; field, where it contains an instance
+;; manage-instance-type/2: return the correct typing for the specific 
+;; case of field, where it contains an instance
 (defun manage-instance-type (part parents-fields)
 
   (if (null parents-fields)
@@ -237,8 +239,8 @@
                   (second parent-part))
             (fill-value-field part (rest parents-fields))))))
 
-;; fill-type-field/2: adds missing type to field if available to inherit from
-;; parents, else set type as T to normalize length
+;; fill-type-field/2: adds missing type to field if available to inherit
+;; from parents, else set type as T to normalize length
 (defun fill-type-field (part parents-fields)
   (if (null parents-fields)
       (list (first part) (second part) t)
@@ -262,7 +264,9 @@
                         (subtypep (type-of (second part)) 
                                   (third parent-part)))
                     (if (= 2 (length part))
-                        (list (first part) (second part) (third parent-part))
+                        (list (first part) 
+                              (second part) 
+                              (third parent-part))
 			part)
                   (if (= 2 (length part))
                       (list (first part) (second part) t)  
@@ -322,7 +326,8 @@
             (let ((temp-parts (remove-duplicates 
                                (append (get-all-fields 
                                         (rest parents) parts)
-                                       (fields-validation parts parent-fields))
+                                       (fields-validation parts 
+                                                          parent-fields))
                                :test #'equal :key #'car)))
               (let ((final-parts (concat-parts 
                                   temp-parts parent-fields)))
@@ -330,15 +335,16 @@
           (error "~A is not an existing class" (car parents)))
       parts))
 
-;; is-valid-fields/1: recursevly calls is-valid-field-structure on fields list
+;; is-valid-fields/1: recursevly calls is-valid-field-structure on 
+;; fields list
 (defun is-valid-fields (fields)
   (if (null fields)
       T 
       (and (is-valid-field-structure (car fields)) 
            (is-valid-fields (cdr fields)))))
 
-;; field structure/1: filters field by length, normalizing it to 3, and passing
-;; it the result to is-field
+;; field structure/1: filters field by length, normalizing it to 3, 
+;; and passing it the result to is-field
 (defun is-valid-field-structure (field)
   (if (= 3 (length field)) ;; (name value type)
       (is-field (first field) (second field) (third field))
@@ -354,7 +360,8 @@
       (if (or (symbolp field-type) (eql field-type T))
           (if (or (ignore-errors (typep field-value field-type)) 
                   (eql field-type T)
-                  (ignore-errors (is-instance (rewrite-field field-value))))
+                  (ignore-errors (is-instance 
+                                  (rewrite-field field-value))))
               T
               (error "field-type is not valid or type mismatch"))
           (error "field-type must be a symbol"))
@@ -433,11 +440,12 @@
               (remove-keyword (cdr methods))))
     nil))
 
-;; process-method/2: checks if method-name is a keyword, then start processing
-;; the result
+;; process-method/2: checks if method-name is a keyword, then start
+;; processing the result
 (defun process-method (method-name method-spec)
   (if (keywordp method-name)
-      (do-processing (read-from-string (symbol-name method-name)) method-spec)
+      (do-processing (read-from-string 
+                      (symbol-name method-name)) method-spec)
     (do-processing method-name method-spec)))
 
 ;; do-processing/2: define a function and binds it to the given method name
@@ -450,7 +458,8 @@
                                                         (getf this 
                                                               :class)) 
                                                        :parts))))))
-            (apply (eval (rewrite-method-code method-name (rest method-body)))
+            (apply (eval (rewrite-method-code method-name 
+                                              (rest method-body)))
                    this args)))))
 
 ;; rewrite-method-come/2: rewrites to work as a lambda 
@@ -516,7 +525,8 @@
           (make-custom-instance class-name fields))
       (error "~A is not a valid class-name" class-name)))
 
-;; make-default-instance/1: creates an instance with default value of its class
+;; make-default-instance/1: creates an instance with default value of 
+;; its class
 (defun make-default-instance (class-name)
   (let* ((class-parts (getf (class-spec class-name) :parts))
          (fields (get-fields class-parts)))
@@ -539,8 +549,8 @@
                                     (append result (list name value)))
               (error "generic invalid-instance error"))))))
 
-;; is-valid-instance-value/3: checks if custom name and value are compatible
-;; with the field declared in the class 
+;; is-valid-instance-value/3: checks if custom name and value are
+;; compatible with the field declared in the class 
 (defun is-valid-instance-value (class-fields name value)  
   (if (null class-fields)
       (error "Unknown field: (~A ~A)" name value)
@@ -560,7 +570,8 @@
                                type-class))
 		(if (eql type-class T)
                     (if (or (typep value (type-of value-class))
-                            (subtypep (type-of value) (type-of value-class)))
+                            (subtypep (type-of value) 
+                                      (type-of value-class)))
 			t (error "Cannot assign ~A to type ~A" 
 				 (type-of value) (type-of value-class)))
                   (if (typep value type-class)
@@ -636,7 +647,7 @@
                   (or (eql class-name (getf value :class)) 
                       (is-subclass-of (getf value :class) class-name)))
              T
-             NIL) ;;checking if value is a valid instance of class            
+             NIL) ;;checking if value is a valid instance of class
 	 (error "~A is not a valid class" class-name))))
 
 ;; is-subclass-of/2: checks if the first parameter identifies a subclass of
