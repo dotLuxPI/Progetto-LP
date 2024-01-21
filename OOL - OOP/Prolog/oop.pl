@@ -415,23 +415,10 @@ append_parts(NewParts,
 %%%% make/2: call the make/3
 make(InstanceName, Classname) :-
     make(InstanceName, Classname, []).
-%%%% make/3 first case (the instance doesn't exist): if InstanceName,
-%%%% Classname and ParameterList are valid assert the instance
-make(InstanceName, Classname, ParameterList) :-
-    atom(InstanceName),
-    atom(Classname),
-    clause(class(Classname, _, _), _),
-    is_list(ParameterList),
-    is_parameter(ParameterList),
-    is_valid_parameter_list(ParameterList, Classname),
-    concat_parameter(ParameterList, Classname, FinalParameter),
-    \+ clause(instance(InstanceName, _, _), _),
-    rewrite_par_instance(FinalParameter, FixedParameter),
-    assertz(instance(InstanceName, Classname, FixedParameter)),
-    !.
 %%%% make/3 first case (the instance exist): if InstanceName, Classname
 %%%% and ParameterList are valid assert the instance
 make(InstanceName, Classname, ParameterList) :-
+    clause(instance(InstanceName, _, _), _),
     atom(InstanceName),
     atom(Classname),
     clause(class(Classname, _, _), _),
@@ -439,8 +426,21 @@ make(InstanceName, Classname, ParameterList) :-
     is_parameter(ParameterList),
     is_valid_parameter_list(ParameterList, Classname),
     concat_parameter(ParameterList, Classname, FinalParameter),
-    clause(instance(InstanceName, _, _), _),
     retractall(instance(InstanceName, _, _)),
+    rewrite_par_instance(FinalParameter, FixedParameter),
+    assertz(instance(InstanceName, Classname, FixedParameter)),
+    !.
+%%%% make/3 first case (the instance doesn't exist): if InstanceName,
+%%%% Classname and ParameterList are valid assert the instance
+make(InstanceName, Classname, ParameterList) :-
+    \+ clause(instance(InstanceName, _, _), _),
+    atom(InstanceName),
+    atom(Classname),
+    clause(class(Classname, _, _), _),
+    is_list(ParameterList),
+    is_parameter(ParameterList),
+    is_valid_parameter_list(ParameterList, Classname),
+    concat_parameter(ParameterList, Classname, FinalParameter),
     rewrite_par_instance(FinalParameter, FixedParameter),
     assertz(instance(InstanceName, Classname, FixedParameter)),
     !.
