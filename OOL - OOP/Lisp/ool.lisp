@@ -228,27 +228,37 @@
 ;; compatibility-check/2: checks if part fully is compatible with 
 ;; parents-fields
 (defun compatibility-check (part parts-list)
-  (if (null parts-list)
-      part
-    (let ((class-part (first parts-list)))
-      (if (eql (first part) (first class-part))
-          (if (null (second class-part))
-              part
-            
-            (if (or (null (third class-part))
-                    (eql (third class-part) t))
-                (if (typep (second class-part) 
-                           (third part))
-                    part 
-                  (error "Type mismatch for field ~A. ~%~A vs ~A~%"
-                         (first part) 
-                         (third part) 
+
+  (let ((new-part (list (first part) 
+                        (rewrite-field (second part)) 
+                        (third part))))
+  
+    (if (is-instance (second new-part) (third part)) ;;shortcircuit separa is-instance dal controllo del tipo!!!
+        t
+
+      (if (null parts-list)
+          new-part
+        (let ((class-part (first parts-list)))
+          (if (eql (first new-part) (first class-part))
+              (if (null (second class-part))
+                  new-part
+                
+                (if (or (null (third class-part))
+                        (eql (third class-part) t))
+                    (if (typep (second class-part) 
+                               (third new-part))
+                        new-part 
+                      (error "Type mismatch for field ~A. ~%~A vs ~A~%"
+                             (first new-part) 
+                             (third new-part) 
                          (type-of (second class-part))))
-              (if (eql (third part) (third class-part))
-                  part
-                (error "Type mismatch for field ~A: ~A vs ~A"
-                       (first part) (third part) (third class-part)))))
-        (compatibility-check part (rest parts-list))))))
+                  (if (eql (third new-part) (third class-part))
+                      new-part
+                    (error "Type mismatch for field ~A: ~A vs ~A"
+                           (first new-part) 
+                           (third new-part) 
+                           (third class-part)))))
+            (compatibility-check new-part (rest parts-list))))))))
 
 ;; get-all-fields/2: gets every field of a class and appends them to the 
 ;; fields inherited from parents, removing duplicates
@@ -554,6 +564,7 @@
 
 ;; IS_INSTANCE/2
 (defun is-instance (value &optional(class-name T))
+
   (if (equal class-name T)
       (if (and (listp value) (not (null (getf value :class))))
           T
