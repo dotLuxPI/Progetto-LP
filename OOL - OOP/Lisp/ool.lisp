@@ -125,6 +125,7 @@
 (defun get-methods (parts)
   (let* ((start (position 'METHODS parts :test #'eq))
          (end (length parts)))
+    t
     (if (null start)
         nil
 	(if (null end)
@@ -442,14 +443,13 @@
 
 ;; process-method/2: checks if method-name is a keyword, then start
 ;; processing the result
-(defun process-method (method-name method-spec)
+(defun process-method (method-name)
   (if (keywordp method-name)
-      (do-processing (read-from-string 
-                      (symbol-name method-name)) method-spec)
-    (do-processing method-name method-spec)))
+      (do-processing (read-from-string (symbol-name method-name)))
+    (do-processing method-name)))
 
 ;; do-processing/2: define a function and binds it to the given method name
-(defun do-processing (method-name method-spec)
+(defun do-processing (method-name)
   (setf (fdefinition method-name)
         (lambda (this &rest args)
           (let* ((method-body 
@@ -458,12 +458,11 @@
                                                         (getf this 
                                                               :class))
                                                        :parts))))))
-            (apply (eval (rewrite-method-code method-name 
-                                              (rest method-body)))
+            (apply (eval (rewrite-method-code (rest method-body)))
                    this args)))))
 
 ;; rewrite-method-come/2: rewrites to work as a lambda 
-(defun rewrite-method-code (method-name method-spec)
+(defun rewrite-method-code (method-spec)
   (list 'lambda (append (list 'this)
                         (car method-spec))
         (cadr method-spec)))
@@ -510,10 +509,9 @@
   (if (null methods)
       NIL
     (let* ((method (car methods))
-           (name (car method))
-           (spec (cdr method)))
+           (name (car method)))
       (progn 
-        (process-method name spec)
+        (process-method name)
         (process-all-methods (rest methods))))))
 
 
