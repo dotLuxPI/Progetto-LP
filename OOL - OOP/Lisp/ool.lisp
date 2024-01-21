@@ -68,7 +68,7 @@
         (error "classname already exists")) 
     (error "classname must be a symbol")))
 
-;; is-class-list 
+;; is-class-list/1: checks if every parent is a valid class
 (defun is-class-list (parents)
   (if (null parents)
       t
@@ -120,7 +120,7 @@
             (rest parts)
             (subseq parts (1+ start) end)))))
 
-;; get-methods/2: takes parts as input, outputs only the methods
+;; get-methods/1: takes parts as input, outputs only the methods
 (defun get-methods (parts)
   (let* ((start (position 'METHODS parts :test #'eq))
          (end (length parts)))
@@ -131,8 +131,8 @@
             (subseq parts (1+ start) end)))))
 
 
-;; concat-parts/2: concatenates parts with parents-parts, giving priority
-;; to the class parts and then parents-parts following the list order
+;; concat-parts/2: concatenates fields with parents-fields, giving priority
+;; to the class fields and then parents-fields following the list order
 (defun concat-parts (parts parents-parts)
   (if (null parts)
       parents-parts
