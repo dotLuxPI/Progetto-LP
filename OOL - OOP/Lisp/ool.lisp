@@ -30,7 +30,7 @@
 (defun def-class (classname &optional (parents '()) &rest parts)
 
   (if (symbolp classname) 
-      (if (not (gethash classname *classes-specs*))    
+      (if (not (gethash classname *classes-specs*))
           (if (or (listp parents) (null parents))
               (if (is-class-list parents)
                   (if (and (all-listp parts) 
@@ -38,9 +38,9 @@
                       (let* ((class-fields (concat-all 'fields parts))
                              (class-methods (concat-all 'methods parts)))
                         (if (parts-check class-fields class-methods)
-                            (let* ((final-fields 
-                                    (fields-validation 
-                                     (get-all-fields parents 
+                            (let* ((final-fields
+                                    (fields-validation
+                                     (get-all-fields parents
                                                       class-fields)
                                      NIL))
                                    (final-methods (get-all-methods
@@ -50,15 +50,15 @@
 
                                   (process-all-methods final-methods)
                                 
-                                (add-class-spec 
-                                 classname 
-                                 (list 
-                                  :classname classname 
-                                  :parents parents 
-                                  :parts (append 
-                                          (list 'FIELDS 
-                                                final-fields) 
-                                          (list 'METHODS 
+                                (add-class-spec
+                                 classname
+                                 (list
+                                  :classname classname
+                                  :parents parents
+                                  :parts (append
+                                          (list 'FIELDS
+                                                final-fields)
+                                          (list 'METHODS
                                                 final-methods))))
                                 classname))
                           (error "parts must be a list of ~A"
@@ -66,7 +66,7 @@
                     (error "parts must be a list of methods and fields"))
                 (error "parents must be a list of existing classes")) 
             (error "parents must be a list of classes")) 
-        (error "classname already exists")) 
+        (error "classname already exists"))
     (error "classname must be a symbol")))
 
 ;; is-class-list/1: checks if every parent is a valid class
@@ -143,7 +143,7 @@
 	(if (assoc (car part) parents-parts :test #'equal)
             (cons part (concat-parts rest-parts 
                                      (remove 
-                                      (assoc (car part) 
+                                      (assoc (car part)
                                              parents-parts 
                                              :test #'equal) 
                                       parents-parts)))
@@ -158,7 +158,7 @@
          (parents-fields parents-parts))
     (if (null fields)
         '()
-	(cons (fill-in-field (car fields) parents-fields) 
+	(cons (fill-in-field (car fields) parents-fields)
               (fields-validation (rest fields) parents-fields)))))
 
 ;; fill-in-field/2: adds missing field components with inheritance 
@@ -170,28 +170,28 @@
    ((and (or (= 2 (length part))
              (= 3 (length part)))
          (is-instance (rewrite-field (second part))))
-    (manage-instance-type part parents-fields)) 
+    (manage-instance-type part parents-fields))
 
     ((or (= 1 (length part))
-         (and (= 2 (length part)) 
+         (and (= 2 (length part))
               (eql nil (second part)))
          (and (= 3 (length part)) 
               (eql nil (second part)) (eql t (third part))))
-     (compatibility-check 
+     (compatibility-check
       (fill-type-field 
        (fill-value-field part parents-fields) 
-       parents-fields) 
+       parents-fields)
       parents-fields))
     
-    ((or (= 2 (length part)) 
-         (eql (third part) t)) 
+    ((or (= 2 (length part))
+         (eql (third part) t))
      (compatibility-check 
       (fill-type-field part parents-fields) 
       parents-fields))
     
-    ((= 3 (length part)) 
-     (compatibility-check 
-      part 
+    ((= 3 (length part))
+     (compatibility-check
+      part
       parents-fields))))
 
 ;; manage-instance-type/2: return the correct typing for the specific 
@@ -212,7 +212,7 @@
           (type (third part))
           (parent-part (first parents-fields)))
 
-      (if (and (ignore-errors (is-instance inst type)) 
+      (if (and (ignore-errors (is-instance inst type))
                (or (is-subclass-of type (third parent-part))
                    (eql t (third parent-part))))
           part
@@ -231,7 +231,7 @@
 (defun fill-value-field (part parents-fields)
 
   (if (null parents-fields)
-      (list (first part) 
+      (list (first part)
             nil)
       (let ((parent-part (first parents-fields)))
 	(if (eql (first part) (first parent-part))
@@ -261,7 +261,7 @@
             (if (third parent-part)
                 (if (or (typep (second part) 
                                  (third parent-part)) 
-                        (subtypep (type-of (second part)) 
+                        (subtypep (type-of (second part))
                                   (third parent-part)))
                     (if (= 2 (length part))
                         (list (first part) 
@@ -269,7 +269,7 @@
                               (third parent-part))
 			part)
                   (if (= 2 (length part))
-                      (list (first part) (second part) t)  
+                      (list (first part) (second part) t)
                     part))
               (if (= 2 (length part))
                   (list (first part) (second part) t)
@@ -281,7 +281,7 @@
 (defun compatibility-check (part parts-list)
 
   (let ((new-part (list (first part) 
-                        (rewrite-field (second part)) 
+                        (rewrite-field (second part))
                         (third part))))
   
     (if (is-instance (second new-part))
@@ -303,14 +303,14 @@
                                (third new-part))
                         new-part 
                       (error "Type mismatch for field ~A. ~%~A vs ~A~%"
-                             (first new-part) 
-                             (third new-part) 
+                             (first new-part)
+                             (third new-part)
                          (type-of (second class-part))))
                   (if (eql (third new-part) (third class-part))
                       new-part
                     (error "Type mismatch for field ~A: ~A vs ~A"
-                           (first new-part) 
-                           (third new-part) 
+                           (first new-part)
+                           (third new-part)
                            (third class-part)))))
             (compatibility-check new-part (rest parts-list))))))))
 
@@ -320,7 +320,7 @@
   (if parents
       (if (is-class (car parents))
           (let ((parent-fields 
-                 (first (get-fields 
+                 (first (get-fields
                          (getf (class-spec (car parents)) 
                                :parts)))))
             (let ((temp-parts (remove-duplicates 
@@ -340,10 +340,10 @@
 (defun is-valid-fields (fields)
   (if (null fields)
       T 
-      (and (is-valid-field-structure (car fields)) 
+      (and (is-valid-field-structure (car fields))
            (is-valid-fields (cdr fields)))))
 
-;; field structure/1: filters field by length, normalizing it to 3, 
+;; field structure/1: filters field by length, normalizing it to 3,
 ;; and passing it the result to is-field
 (defun is-valid-field-structure (field)
   (if (= 3 (length field)) ;; (name value type)
@@ -378,7 +378,7 @@
 
 ;; is-valid-methods/1: recursevly calls is-valid-method-structure on
 ;; methods list 
-(defun is-valid-methods (methods) 
+(defun is-valid-methods (methods)
   (if (null methods)
       t
       (and (is-valid-method-structure (car methods))
@@ -456,7 +456,7 @@
                   (get-method method-name 
                               (first (get-methods(getf (class-spec 
                                                         (getf this 
-                                                              :class)) 
+                                                              :class))
                                                        :parts))))))
             (apply (eval (rewrite-method-code method-name 
                                               (rest method-body)))
@@ -464,7 +464,7 @@
 
 ;; rewrite-method-come/2: rewrites to work as a lambda 
 (defun rewrite-method-code (method-name method-spec)
-  (list 'lambda (append (list 'this) 
+  (list 'lambda (append (list 'this)
                         (car method-spec))
         (cadr method-spec)))
 
@@ -550,8 +550,8 @@
               (error "generic invalid-instance error"))))))
 
 ;; is-valid-instance-value/3: checks if custom name and value are
-;; compatible with the field declared in the class 
-(defun is-valid-instance-value (class-fields name value)  
+;; compatible with the field declared in the class
+(defun is-valid-instance-value (class-fields name value)
   (if (null class-fields)
       (error "Unknown field: (~A ~A)" name value)
       (let* ((name-class (first (first class-fields)))
@@ -562,11 +562,11 @@
                 (if (or (is-instance (rewrite-field value) type-class)
                         (eql t type-class)
                         (null type-class))
-                    t (error "Invalid type for instance ~A" 
+                    t (error "Invalid type for instance ~A"
                              name))
               (if (null value)
                   (if (eql type-class T)
-                      t (error "Cannot assign NIL to type ~A" 
+                      t (error "Cannot assign NIL to type ~A"
                                type-class))
 		(if (eql type-class T)
                     (if (or (typep value (type-of value-class))
@@ -575,7 +575,7 @@
 			t (error "Cannot assign ~A to type ~A" 
 				 (type-of value) (type-of value-class)))
                   (if (typep value type-class)
-                      t (error "Cannot assign ~A to type ~A" 
+                      t (error "Cannot assign ~A to type ~A"
                                (type-of value) type-class)))))
               (is-valid-instance-value (rest class-fields) 
                                        name 
@@ -644,7 +644,7 @@
           NIL)  ;;checking if value is a valid instance
       (if(is-class class-name)
          (if (and (listp value) 
-                  (or (eql class-name (getf value :class)) 
+                  (or (eql class-name (getf value :class))
                       (is-subclass-of (getf value :class) class-name)))
              T
              NIL) ;;checking if value is a valid instance of class

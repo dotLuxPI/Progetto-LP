@@ -1,3 +1,9 @@
 Magliani Andrea	894395
 Perego Luca	894448
 Picco Nicolas	894588
+
+OOP - PRIMITIVE
+
+1. 
+
+OOP - FUNZIONI HELPER
