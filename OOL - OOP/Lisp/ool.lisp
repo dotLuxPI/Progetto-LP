@@ -40,10 +40,9 @@
                              (class-methods (concat-all 'methods parts)))
                         (if (parts-check class-fields class-methods)
                             (let* ((final-fields 
-                                    (fields-validation
-                                     (rewrite-fields 
-                                      (get-all-fields parents 
-                                                      class-fields))
+                                    (fields-validation 
+                                     (get-all-fields parents 
+                                                      class-fields)
                                      NIL))
                                    (final-methods (get-all-methods
                                                    parents
@@ -299,18 +298,13 @@
           (error "field-type must be a symbol"))
       (error "field-name must be a symbol")))
 
-(defun rewrite-fields (fields)
-  (if (null fields)
-      nil
-    (cond 
-     ((ignore-errors (eval (second (first fields))))
-      (if (is-instance(eval (second (first fields))))
-          (cons (eval-field (first fields)) (rewrite-fields (rest fields)))
-        (cons (first fields) (rewrite-fields (rest fields)))))
-     (t (cons (first fields) (rewrite-fields (rest fields)))))))
-
-(defun eval-field (field)
-  (list (first field) (eval (second field)) (third field)))
+(defun rewrite-field (field-value)
+  (cond 
+   ((ignore-errors (eval field-value))
+    (if (is-instance (eval field-value))
+        (eval field-value)
+      field-value))
+   (T field-value)))
 
 ;; is-valid-methods/1: recursevly calls is-valid-method-structure on
 ;; methods list 
@@ -532,8 +526,10 @@
 ;; FIELD/2
 (defun field (instance field-name)
   (if(is-instance instance)
-     (getf (getf instance :fields) field-name)
-     (error "~A is not a valid instance" instance)))
+      (if (null (getf (getf instance :fields) field-name))
+          (error "field ~A not found." field-name)
+        (rewrite-field (getf (getf instance :fields) field-name)))
+    (error "~A is not a valid instance" instance)))
 
 ;; FIELD*/(1 + N)
 (defun field* (instance &rest field-names)
